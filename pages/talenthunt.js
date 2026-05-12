@@ -469,13 +469,13 @@ export default function TalentHuntPage() {
                       onSort={handleSort}
                     />
 
-                    <SortHeader
-                      label="Result"
-                      column="result_status"
-                      sortBy={sortBy}
-                      sortOrder={sortOrder}
-                      onSort={handleSort}
-                    />
+                  <SortHeader
+  label="Marks"
+  column="test_marks"
+  sortBy={sortBy}
+  sortOrder={sortOrder}
+  onSort={handleSort}
+/>
 
                     <SortHeader
                       label="Admission Status"
@@ -514,9 +514,9 @@ export default function TalentHuntPage() {
                         <TestBadge status={item.test_status} />
                       </td>
 
-                      <td className="min-w-[150px] px-4 py-4">
-                        <ResultBadge status={item.result_status} />
-                      </td>
+                    <td className="whitespace-nowrap px-4 py-4 text-sm font-bold text-slate-800">
+  {item.test_marks ?? "-"}
+</td>
 
                       <td className="min-w-[210px] px-4 py-4">
                         <AdmissionBadge status={item.admission_status} />
