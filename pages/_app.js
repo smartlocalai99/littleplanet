@@ -8,7 +8,7 @@ import { useMemo } from "react";
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
-  const isLoginPage = router.pathname === "/login";
+  const isPublicPage = router.pathname === "/login" || Component.publicPage;
   const title = useMemo(() => {
     if (router.pathname === "/dashboard") return "Dashboard";
     if (router.pathname === "/admissions") return "Admissions";
@@ -34,7 +34,7 @@ export default function App({ Component, pageProps }) {
     await router.replace("/login");
   }
 
-  if (isLoginPage) {
+  if (isPublicPage) {
     return <Component {...pageProps} />;
   }
 

@@ -48,8 +48,13 @@ export default async function handler(req, res) {
           ELSE 'Paid'
         END AS payment_status
       FROM public.admissions a
-      LEFT JOIN public.students s
-        ON s.admission_id = a.id
+      LEFT JOIN LATERAL (
+        SELECT id
+        FROM public.students
+        WHERE admission_id = a.id
+        ORDER BY id DESC
+        LIMIT 1
+      ) s ON true
       LEFT JOIN public.fee_payments fp
         ON fp.admission_id = a.id
       WHERE a.fees IS NOT NULL

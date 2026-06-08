@@ -18,6 +18,7 @@ function StatusBadge({ status }) {
     Paid: "bg-green-100 text-green-700",
     Partial: "bg-yellow-100 text-yellow-700",
     Pending: "bg-red-100 text-red-700",
+    "Payment Link Generated": "bg-violet-100 text-violet-700",
   };
 
   return (
@@ -139,6 +140,8 @@ export default function FeesPage() {
   const [entries, setEntries] = useState([]);
 
   const [entryForm, setEntryForm] = useState({
+    admission_id: "",
+    student_id: "",
     date: today,
     student_name: "",
     class_name: "",
@@ -160,6 +163,11 @@ export default function FeesPage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [autoNotify, setAutoNotify] = useState(true);
   const [entryError, setEntryError] = useState("");
+  const [savingFee, setSavingFee] = useState(false);
+  const [phonePeLoading, setPhonePeLoading] = useState(false);
+  const [phonePePayment, setPhonePePayment] = useState(null);
+  const [copyLinkLabel, setCopyLinkLabel] = useState("Copy Link");
+  const [admissionSearch, setAdmissionSearch] = useState("");
 
   const [ledgerSearch, setLedgerSearch] = useState("");
   const [ledgerClass, setLedgerClass] = useState("All");
@@ -195,7 +203,7 @@ export default function FeesPage() {
   }, [rows]);
 
   const paymentModeOptions = useMemo(() => {
-    const defaultModes = ["Cash", "UPI", "Bank Transfer"];
+    const defaultModes = ["Cash", "UPI", "PhonePe", "Bank Transfer"];
     const uniqueFromRows = rows
       .map((item) => getPaymentMode(item))
       .filter(Boolean);
@@ -209,6 +217,41 @@ export default function FeesPage() {
     () => Math.max(...monthlySeries.map((m) => Number(m.collected || 0)), 1),
     [monthlySeries]
   );
+
+  const admissionOptions = useMemo(() => {
+    const seen = new Set();
+
+    return rows.filter((item) => {
+      if (!item.admission_id || seen.has(item.admission_id)) {
+        return false;
+      }
+
+      seen.add(item.admission_id);
+      return true;
+    });
+  }, [rows]);
+
+  const filteredAdmissionOptions = useMemo(() => {
+    const search = admissionSearch.trim().toLowerCase();
+
+    if (!search) {
+      return admissionOptions;
+    }
+
+    return admissionOptions.filter((item) =>
+      [
+        item.admission_id,
+        item.student_id,
+        item.student_name,
+        getClassName(item),
+        item.father_name,
+        item.father_mobile,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(search)
+    );
+  }, [admissionOptions, admissionSearch]);
 
   useEffect(() => {
     let isMounted = true;
@@ -261,16 +304,6 @@ export default function FeesPage() {
       isMounted = false;
     };
   }, [month, autoNotify]);
-
-  useEffect(() => {
-    setLedgerPage(1);
-  }, [
-    ledgerSearch,
-    ledgerClass,
-    ledgerStatus,
-    ledgerPaymentMode,
-    ledgerDueOnly,
-  ]);
 
   const filteredLedgerRows = useMemo(() => {
     const search = ledgerSearch.trim().toLowerCase();
@@ -439,12 +472,76 @@ export default function FeesPage() {
 
   function handleEntryChange(event) {
     const { name, value } = event.target;
+    const shouldClearStudentReference = [
+      "student_name",
+      "class_name",
+      "parent_mobile",
+    ].includes(name);
 
+    setPhonePePayment(null);
+    setCopyLinkLabel("Copy Link");
+    if (shouldClearStudentReference) {
+      setAdmissionSearch("");
+    }
     setEntryForm((current) => ({
       ...current,
       [name]: value,
-      ...(name === "payment_mode" ? (value === "Cash" ? { utr: "" } : {}) : {}),
+      ...(shouldClearStudentReference
+        ? { admission_id: "", student_id: "" }
+        : {}),
+      ...(name === "payment_mode" ? (value === "UPI" ? {} : { utr: "" }) : {}),
     }));
+  }
+
+  function handleAdmissionRecordChange(event) {
+    const admissionId = event.target.value;
+    const selectedAdmission = admissionOptions.find(
+      (item) => String(item.admission_id) === admissionId
+    );
+
+    setPhonePePayment(null);
+    setCopyLinkLabel("Copy Link");
+    setEntryError("");
+
+    if (!selectedAdmission) {
+      setAdmissionSearch("");
+      setEntryForm((current) => ({
+        ...current,
+        admission_id: "",
+        student_id: "",
+        student_name: "",
+        class_name: "",
+        parent_mobile: "",
+      }));
+      return;
+    }
+
+    selectLedgerRowForCollection(selectedAdmission, { shouldScroll: false });
+  }
+
+  function selectLedgerRowForCollection(item, options = {}) {
+    setPhonePePayment(null);
+    setCopyLinkLabel("Copy Link");
+    setEntryError("");
+    setAdmissionSearch(item.student_name || String(item.admission_id || ""));
+    setEntryForm((current) => ({
+      ...current,
+      admission_id: item.admission_id || "",
+      student_id: item.student_id || "",
+      student_name: item.student_name || "",
+      class_name: getClassName(item) || "",
+      parent_mobile: item.father_mobile || "",
+      amount_collected:
+        Number(item.balance_amount || 0) > 0
+          ? String(Number(item.balance_amount || 0))
+          : current.amount_collected,
+      payment_mode: current.payment_mode === "PhonePe" ? "Cash" : current.payment_mode,
+      utr: current.payment_mode === "UPI" ? current.utr : "",
+    }));
+
+    if (options.shouldScroll !== false) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }
 
   // Receipt upload handler removed for Cash payments per request
@@ -470,20 +567,16 @@ export default function FeesPage() {
     });
   }
 
-  function saveFeeEntry(event) {
+  async function saveFeeEntry(event) {
     event.preventDefault();
     setEntryError("");
 
-    if (
-      !entryForm.date ||
-      !entryForm.student_name ||
-      !entryForm.class_name ||
-      !entryForm.parent_mobile ||
-      !entryForm.amount_collected
-    ) {
-      setEntryError(
-        "Please fill date, student name, class, parent mobile number, and amount collected."
-      );
+    if (!validateFeeEntry()) {
+      return;
+    }
+
+    if (entryForm.payment_mode === "PhonePe") {
+      setEntryError("Use Generate PhonePe Link for PhonePe payments.");
       return;
     }
 
@@ -492,24 +585,214 @@ export default function FeesPage() {
       return;
     }
 
-    setEntries((current) => [
-      {
-        id: Date.now(),
-        ...entryForm,
-        amount_collected: Number(entryForm.amount_collected || 0),
-      },
-      ...current,
-    ]);
+    setSavingFee(true);
 
-    setEntryForm({
-      date: today,
-      student_name: "",
-      class_name: "",
-      parent_mobile: "",
-      amount_collected: "",
-      payment_mode: "Cash",
-      utr: "",
-    });
+    try {
+      const response = await fetch("/api/fees/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          student_name: entryForm.student_name,
+          admission_id: entryForm.admission_id || undefined,
+          student_id: entryForm.student_id || undefined,
+          class_name: entryForm.class_name,
+          parent_mobile: entryForm.parent_mobile,
+          amount_paid: Number(entryForm.amount_collected),
+          payment_mode: entryForm.payment_mode,
+          payment_date: entryForm.date,
+          utr: entryForm.utr || "",
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success || !data.paymentSaved) {
+        throw new Error(data.error || "Unable to save fee collection");
+      }
+
+      setEntries((current) => [
+        {
+          id: Date.now(),
+          ...entryForm,
+          amount_collected: Number(entryForm.amount_collected || 0),
+          receipt_no: data.receiptNo,
+          status: "Paid",
+        },
+        ...current,
+      ]);
+
+      setEntryForm({
+        admission_id: "",
+        student_id: "",
+        date: today,
+        student_name: "",
+        class_name: "",
+        parent_mobile: "",
+        amount_collected: "",
+        payment_mode: "Cash",
+        utr: "",
+      });
+      setAdmissionSearch("");
+
+      setEntryError(
+        data.whatsappSent
+          ? "Fee saved and WhatsApp receipt sent."
+          : "Fee saved, but WhatsApp failed."
+      );
+
+      const params = new URLSearchParams();
+
+      if (month) {
+        params.set("month", month);
+      }
+
+      const feesResponse = await fetch(`/api/fees?${params.toString()}`);
+      const feesData = await feesResponse.json();
+
+      if (feesResponse.ok && feesData.success) {
+        setRows(feesData.records || []);
+        setMetrics(feesData.metrics || {});
+        setMonthly(feesData.monthly || []);
+        setLedgerPage(1);
+
+        if (autoNotify) {
+          setSelectedIds(
+            (feesData.records || [])
+              .filter(
+                (item) =>
+                  Number(item.balance_amount || 0) > 0 &&
+                  normalizePhoneNumber(item.father_mobile)
+              )
+              .map((item) => item.admission_id)
+          );
+        } else {
+          setSelectedIds([]);
+        }
+      }
+    } catch (requestError) {
+      setEntryError(requestError.message || "Unable to save fee collection");
+    } finally {
+      setSavingFee(false);
+    }
+  }
+
+  function validateFeeEntry() {
+    if (
+      !entryForm.date ||
+      !entryForm.admission_id ||
+      !entryForm.student_name ||
+      !entryForm.class_name ||
+      !entryForm.parent_mobile ||
+      !entryForm.amount_collected
+    ) {
+      setEntryError(
+        "Please select an admission record and fill date, student name, class, parent mobile number, and amount collected."
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  async function generatePhonePeLink() {
+    setEntryError("");
+
+    if (!validateFeeEntry()) {
+      return;
+    }
+
+    setPhonePeLoading(true);
+    setPhonePePayment(null);
+
+    const timestamp = Date.now();
+    const invoiceNo = `FEE-${timestamp}`;
+    const description = `School Fee - ${entryForm.student_name} - ${entryForm.class_name}`;
+
+    try {
+      const response = await fetch("/api/phonepe/create-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceId: invoiceNo,
+          invoiceNo,
+          customerName: entryForm.student_name,
+          mobile: entryForm.parent_mobile,
+          amount: entryForm.amount_collected,
+          description,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Unable to generate PhonePe payment link");
+      }
+
+      if (!data.checkoutUrl) {
+        throw new Error("PhonePe checkout URL is missing");
+      }
+
+      const generatedPayment = {
+        invoiceNo,
+        merchantOrderId: data.merchantOrderId,
+        checkoutUrl: data.checkoutUrl,
+        state: data.state,
+        studentName: entryForm.student_name,
+        parentMobile: entryForm.parent_mobile,
+        amount: Number(entryForm.amount_collected || 0),
+      };
+
+      setPhonePePayment(generatedPayment);
+      setEntries((current) => [
+        {
+          id: timestamp,
+          ...entryForm,
+          invoice_no: invoiceNo,
+          merchant_order_id: data.merchantOrderId,
+          checkout_url: data.checkoutUrl,
+          amount_collected: Number(entryForm.amount_collected || 0),
+          status: "Payment Link Generated",
+        },
+        ...current,
+      ]);
+
+      // Later: save the pending PhonePe order against the fee/invoice in the database.
+      // Later: create a SmartBooks notification that the payment link was generated.
+    } catch (requestError) {
+      setEntryError(
+        requestError.message || "Unable to generate PhonePe payment link"
+      );
+    } finally {
+      setPhonePeLoading(false);
+    }
+  }
+
+  async function copyPhonePeLink() {
+    if (!phonePePayment?.checkoutUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(phonePePayment.checkoutUrl);
+      setCopyLinkLabel("Link Copied");
+    } catch {
+      setCopyLinkLabel("Copy Failed");
+    }
+
+    window.setTimeout(() => setCopyLinkLabel("Copy Link"), 2500);
+  }
+
+  function sharePhonePeLinkOnWhatsApp() {
+    if (!phonePePayment?.checkoutUrl) return;
+
+    const message = `Dear Parent, please pay the school fee for ${
+      phonePePayment.studentName
+    }.\nAmount: ${formatCurrency(phonePePayment.amount)}\nPayment Link: ${
+      phonePePayment.checkoutUrl
+    }`;
+    const phone = normalizePhoneNumber(phonePePayment.parentMobile);
+
+    window.open(
+      `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   }
 
   return (
@@ -598,7 +881,7 @@ export default function FeesPage() {
             <div className="rounded-3xl bg-slate-50 px-5 py-4 text-sm text-slate-600">
               <p className="font-semibold text-slate-900">Latest entry mode</p>
               <p className="mt-1">
-                Use Cash or UPI and capture UTR when the payment mode is UPI.
+                Use Cash or UPI to record payment, or PhonePe to generate a link.
               </p>
             </div>
           </div>
@@ -613,6 +896,32 @@ export default function FeesPage() {
             onSubmit={saveFeeEntry}
             className="mt-6 grid gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-3"
           >
+            <input
+              value={admissionSearch}
+              onChange={(event) => setAdmissionSearch(event.target.value)}
+              placeholder="Search admission by student, admission no, class, mobile..."
+              aria-label="Search admission record"
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-900 md:col-span-2 xl:col-span-3"
+            />
+
+            <select
+              value={entryForm.admission_id}
+              onChange={handleAdmissionRecordChange}
+              aria-label="Admission record"
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-900 md:col-span-2 xl:col-span-3"
+            >
+              <option value="">Select admission record</option>
+              {filteredAdmissionOptions.map((item) => (
+                <option
+                  key={`${item.admission_id}-${item.student_id || "student"}`}
+                  value={item.admission_id}
+                >
+                  {item.student_name || "Student"} - Admission #
+                  {item.admission_id} - Class {getClassName(item) || "-"}
+                </option>
+              ))}
+            </select>
+
             <input
               name="date"
               type="date"
@@ -674,6 +983,7 @@ export default function FeesPage() {
             >
               <option>Cash</option>
               <option>UPI</option>
+              <option>PhonePe</option>
             </select>
 
             {/* Receipt upload for Cash removed */}
@@ -689,13 +999,89 @@ export default function FeesPage() {
               />
             )}
 
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-700 md:col-span-2 xl:col-span-3"
-            >
-              <FaPlus /> Save fee collection
-            </button>
+            {entryForm.payment_mode === "PhonePe" ? (
+              <button
+                type="button"
+                onClick={generatePhonePeLink}
+                disabled={phonePeLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 xl:col-span-3"
+              >
+                {phonePeLoading
+                  ? "Generating PhonePe Link..."
+                  : "Generate PhonePe Link"}
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={savingFee}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 xl:col-span-3"
+              >
+                <FaPlus /> {savingFee ? "Saving fee..." : "Save fee collection"}
+              </button>
+            )}
           </form>
+
+          {phonePePayment && (
+            <div className="mt-6 overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 shadow-sm">
+              <div className="border-b border-violet-100 px-6 py-5">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-violet-600">
+                  PhonePe Link Generated
+                </p>
+                <h3 className="mt-2 text-xl font-black text-slate-900">
+                  Share this secure payment link
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  This fee remains unpaid until PhonePe confirms a completed
+                  payment.
+                </p>
+              </div>
+
+              <div className="grid gap-4 p-6 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                    Merchant Order ID
+                  </p>
+                  <p className="mt-2 break-all text-sm font-bold text-slate-800">
+                    {phonePePayment.merchantOrderId}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                    Checkout URL
+                  </p>
+                  <p className="mt-2 break-all text-sm font-semibold text-violet-700">
+                    {phonePePayment.checkoutUrl}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 px-6 pb-6 sm:flex-row">
+                <a
+                  href={phonePePayment.checkoutUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex flex-1 items-center justify-center rounded-2xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-500"
+                >
+                  Open Link
+                </a>
+                <button
+                  type="button"
+                  onClick={copyPhonePeLink}
+                  className="flex flex-1 items-center justify-center rounded-2xl border border-violet-200 bg-white px-5 py-3 text-sm font-bold text-violet-700 transition hover:bg-violet-50"
+                >
+                  {copyLinkLabel}
+                </button>
+                <button
+                  type="button"
+                  onClick={sharePhonePeLinkOnWhatsApp}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-green-500"
+                >
+                  <WhatsAppIcon />
+                  Share on WhatsApp
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {entries.slice(0, 3).map((entry) => (
@@ -717,7 +1103,15 @@ export default function FeesPage() {
                 </p>
                 <div className="mt-3 space-y-1 text-sm text-slate-500">
                   <p>Mode: {entry.payment_mode}</p>
-                  <p>UTR: {entry.utr || "-"}</p>
+                  {entry.payment_mode === "UPI" && (
+                    <p>UTR: {entry.utr || "-"}</p>
+                  )}
+                  <p>
+                    Status:{" "}
+                    <span className="font-bold text-slate-700">
+                      {entry.status || "Paid"}
+                    </span>
+                  </p>
                 </div>
               </div>
             ))}
@@ -839,14 +1233,20 @@ export default function FeesPage() {
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
               <input
                 value={ledgerSearch}
-                onChange={(e) => setLedgerSearch(e.target.value)}
+                onChange={(e) => {
+                  setLedgerSearch(e.target.value);
+                  setLedgerPage(1);
+                }}
                 placeholder="Search student, parent, mobile..."
                 className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-slate-900 xl:col-span-2"
               />
 
               <select
                 value={ledgerClass}
-                onChange={(e) => setLedgerClass(e.target.value)}
+                onChange={(e) => {
+                  setLedgerClass(e.target.value);
+                  setLedgerPage(1);
+                }}
                 className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-slate-900"
               >
                 <option value="All">All Classes</option>
@@ -859,7 +1259,10 @@ export default function FeesPage() {
 
               <select
                 value={ledgerStatus}
-                onChange={(e) => setLedgerStatus(e.target.value)}
+                onChange={(e) => {
+                  setLedgerStatus(e.target.value);
+                  setLedgerPage(1);
+                }}
                 className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-slate-900"
               >
                 <option value="All">All Status</option>
@@ -870,7 +1273,10 @@ export default function FeesPage() {
 
               <select
                 value={ledgerPaymentMode}
-                onChange={(e) => setLedgerPaymentMode(e.target.value)}
+                onChange={(e) => {
+                  setLedgerPaymentMode(e.target.value);
+                  setLedgerPage(1);
+                }}
                 className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-slate-900"
               >
                 <option value="All">All Modes</option>
@@ -886,7 +1292,10 @@ export default function FeesPage() {
                   <input
                     type="checkbox"
                     checked={ledgerDueOnly}
-                    onChange={(e) => setLedgerDueOnly(e.target.checked)}
+                    onChange={(e) => {
+                      setLedgerDueOnly(e.target.checked);
+                      setLedgerPage(1);
+                    }}
                     className="h-4 w-4 rounded border-slate-300 text-red-600"
                   />
                   Due only
@@ -935,7 +1344,12 @@ export default function FeesPage() {
                   );
 
                   return (
-                    <tr key={item.admission_id} className="hover:bg-slate-50">
+                    <tr
+                      key={`${item.admission_id || "admission"}-${
+                        item.student_id || "student"
+                      }`}
+                      className="hover:bg-slate-50"
+                    >
                       <td className="px-5 py-4 align-top">
                         <input
                           type="checkbox"
@@ -985,15 +1399,24 @@ export default function FeesPage() {
                       </td>
 
                       <td className="px-5 py-4 align-top">
-                        <button
-                          type="button"
-                          onClick={() => openWhatsApp(item)}
-                          disabled={!hasPhone}
-                          className="inline-flex items-center gap-2 rounded-2xl bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                        >
-                          <WhatsAppIcon />
-                          WhatsApp
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => selectLedgerRowForCollection(item)}
+                            className="inline-flex items-center rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700"
+                          >
+                            Collect
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openWhatsApp(item)}
+                            disabled={!hasPhone}
+                            className="inline-flex items-center gap-2 rounded-2xl bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                          >
+                            <WhatsAppIcon />
+                            WhatsApp
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
