@@ -11,9 +11,9 @@ export default function Document() {
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="theme-color" content="#ffffff" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" href="/logo.png" type="image/png" sizes="1254x1254" />
-        <link rel="shortcut icon" href="/logo.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/logo.png" sizes="1254x1254" />
+        <link rel="icon" href="/logo.jpg" type="image/jpeg" sizes="320x320" />
+        <link rel="shortcut icon" href="/logo.jpg" type="image/jpeg" />
+        <link rel="apple-touch-icon" href="/logo.jpg" sizes="320x320" />
       </Head>
       <body className="antialiased">
         <Main />
