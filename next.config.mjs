@@ -2,10 +2,35 @@
 const nextConfig = {
   /* config options here */
   images: {
-    domains: ["cdn.1millionresume.com","blogger.googleusercontent.com","imgv2-2-f.scribdassets.com","i.pinimg.com","static.vecteezy.com","illustrations.miraheze.org"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "cdn.1millionresume.com",
+      },
+      {
+        protocol: "https",
+        hostname: "blogger.googleusercontent.com",
+      },
+      {
+        protocol: "https",
+        hostname: "imgv2-2-f.scribdassets.com",
+      },
+      {
+        protocol: "https",
+        hostname: "i.pinimg.com",
+      },
+      {
+        protocol: "https",
+        hostname: "static.vecteezy.com",
+      },
+      {
+        protocol: "https",
+        hostname: "illustrations.miraheze.org",
+      },
+    ],
   },
   reactStrictMode: true,
-   devIndicators: false,
+  devIndicators: false,
 };
 
 export default nextConfig;

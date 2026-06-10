@@ -387,7 +387,47 @@ export default function DashboardPage({
             <FaClipboardList className="text-2xl text-slate-400" />
           </div>
 
-          <div className="mt-5 overflow-x-auto">
+          <div className="mt-5 grid gap-3 md:hidden">
+            {latestAdmissions.length > 0 ? latestAdmissions.map((admission) => (
+              <div key={admission.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-slate-900">
+                      {admission.student_name || "Unnamed applicant"}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Admission #{admission.id}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ring-1 ${getStatusTone(admission.admission_status)}`}>
+                    {admission.admission_status || "NEW"}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Class</p>
+                    <p className="mt-1 font-semibold text-slate-800">{admission.class_applying_for || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Fees</p>
+                    <p className="mt-1 font-semibold text-slate-800">{formatCurrency(admission.fees)}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Parent</p>
+                    <p className="mt-1 font-semibold text-slate-800">{admission.father_name || "-"}</p>
+                    <p className="mt-0.5 text-slate-500">{admission.father_mobile || "-"}</p>
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
+                No admissions are available yet.
+              </div>
+            )}
+          </div>
+
+          <div className="mt-5 hidden overflow-x-auto md:block">
             <table className="min-w-full border-separate border-spacing-0">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-[0.2em] text-slate-400">

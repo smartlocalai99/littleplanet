@@ -17,38 +17,7 @@ const columns = [
   "Notes",
 ];
 
-const sampleTransactions = [
-  {
-    date: "2026-05-22",
-    type: "Admission fee received",
-    category: "Admissions",
-    paymentMode: "Cash",
-    amount: 2000,
-    reference: "ADM-1024-501",
-    createdBy: "Admission Desk",
-    notes: "Initial admission payment recorded.",
-  },
-  {
-    date: "2026-05-22",
-    type: "Fee received",
-    category: "Fees",
-    paymentMode: "UPI",
-    amount: 5000,
-    reference: "FEE-2205-78",
-    createdBy: "Accountant",
-    notes: "Monthly fee collection.",
-  },
-  {
-    date: "2026-05-21",
-    type: "Expense paid",
-    category: "Office",
-    paymentMode: "Bank Transfer",
-    amount: 3200,
-    reference: "EXP-4451",
-    createdBy: "Admin",
-    notes: "Stationery and office supplies.",
-  },
-];
+const transactions = [];
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-IN", {
@@ -62,18 +31,22 @@ export default function TransactionsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 2;
 
-  const totalPages = Math.max(1, Math.ceil(sampleTransactions.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(transactions.length / pageSize));
 
   const paginatedTransactions = useMemo(
-    () => sampleTransactions.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    () => transactions.slice((currentPage - 1) * pageSize, currentPage * pageSize),
     [currentPage]
   );
 
   function exportTransactions() {
+    if (transactions.length === 0) {
+      return;
+    }
+
     downloadExcel({
       fileName: "transaction-register.xlsx",
       sheetName: "Transactions",
-      rows: sampleTransactions.map((row) => ({
+      rows: transactions.map((row) => ({
         Date: row.date,
         Type: row.type,
         Category: row.category,
@@ -122,7 +95,8 @@ export default function TransactionsPage() {
               <button
                 type="button"
                 onClick={exportTransactions}
-                className="inline-flex w-fit items-center gap-2 rounded-full  bg-green-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-sm transition hover:bg-primary-700"
+                disabled={transactions.length === 0}
+                className="inline-flex w-fit items-center gap-2 rounded-full bg-green-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white shadow-sm transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FaFileExcel />
                 Download Excel
@@ -162,12 +136,18 @@ export default function TransactionsPage() {
                 ))}
               </tbody>
             </table>
+
+            {transactions.length === 0 && (
+              <div className="p-10 text-center text-sm font-semibold text-slate-500">
+                No transactions found.
+              </div>
+            )}
           </div>
 
           <PaginationControls
             currentPage={currentPage}
             totalPages={totalPages}
-            totalItems={sampleTransactions.length}
+            totalItems={transactions.length}
             pageSize={pageSize}
             label="transactions"
             onPageChange={setCurrentPage}

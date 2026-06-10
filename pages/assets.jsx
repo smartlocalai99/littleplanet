@@ -1125,7 +1125,15 @@ export default function AssetsPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-[900px]">
+            <table className="w-full min-w-[1120px]">
+              <colgroup>
+                <col className="w-[22%]" />
+                <col className="w-[13%]" />
+                <col className="w-[8%]" />
+                <col className="w-[12%]" />
+                <col className="w-[14%]" />
+                <col className="w-[31%]" />
+              </colgroup>
               <thead className="bg-primary">
                 <tr>
                   {[

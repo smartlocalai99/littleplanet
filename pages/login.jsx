@@ -37,7 +37,7 @@ export async function getServerSideProps(context) {
 
 function PositivePrimeLogo() {
   return (
-  <div className="relative h-42.5 w-57.5">
+    <div className="relative h-42.5 w-57.5">
       <Image
         src="/accountslogo.png"
         alt="SmartBooks AI Logo"
@@ -47,7 +47,25 @@ function PositivePrimeLogo() {
       />
     </div>
   );
-}function WhatsAppIcon({ className = "h-5 w-5" }) {
+}
+
+function MobileLoginLogo() {
+  return (
+    <div className="mb-4 flex justify-center sm:mb-6 lg:hidden">
+      <div className="relative h-20 w-28 sm:h-44 sm:w-52">
+        <Image
+          src="/accountslogo.png"
+          alt="SmartBooks AI Logo"
+          fill
+          priority
+          className="object-contain"
+        />
+      </div>
+    </div>
+  );
+}
+
+function WhatsAppIcon({ className = "h-5 w-5" }) {
   return (
     <svg
       viewBox="0 0 32 32"
@@ -383,8 +401,7 @@ export default function LoginPage() {
 
   return (
     <main
-      className="min-h-screen overflow-hidden"
-      style={{ backgroundColor: LOGIN_THEME.surface }}
+      className="min-h-screen overflow-hidden bg-[#6968ab] lg:bg-white"
     >
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[44%_56%]">
         <section
@@ -408,15 +425,17 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-6">
-          <div className="relative w-full max-w-215 rounded-4xl border border-white/70 bg-white/80 p-6 shadow-[0_30px_90px_rgba(16,36,31,0.12)] backdrop-blur xl:p-10">
-            <div className="mx-auto w-full max-w-175">
-              <div className="mb-10 flex items-center justify-between gap-4">
+        <section className="flex min-h-screen items-center justify-center px-4 py-5 sm:px-6 sm:py-10">
+          <div className="w-full max-w-215">
+            <MobileLoginLogo />
+            <div className="relative rounded-3xl border border-white/70 bg-white/95 p-5 shadow-[0_22px_70px_rgba(16,36,31,0.16)] backdrop-blur sm:rounded-4xl sm:bg-white/80 sm:p-6 sm:shadow-[0_30px_90px_rgba(16,36,31,0.12)] xl:p-10">
+              <div className="mx-auto w-full max-w-175">
+              <div className="mb-6 flex items-center justify-between gap-4 sm:mb-10">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.28em]" style={{ color: LOGIN_THEME.muted }}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.28em] sm:text-sm" style={{ color: LOGIN_THEME.muted }}>
                     Secure access
                   </p>
-                  <h1 className="mt-3 text-4xl font-extrabold sm:text-5xl" style={{ color: LOGIN_THEME.ink }}>
+                  <h1 className="mt-2 text-3xl font-extrabold sm:mt-3 sm:text-5xl" style={{ color: LOGIN_THEME.ink }}>
                     Login
                   </h1>
                 </div>
@@ -430,7 +449,7 @@ export default function LoginPage() {
               </div>
 
               <form onSubmit={handleSubmit}>
-                <div className="space-y-6 sm:space-y-8">
+                <div className="space-y-4 sm:space-y-8">
                   <input
                     type="text"
                     value={username}
@@ -438,7 +457,7 @@ export default function LoginPage() {
                     placeholder="Username"
                     autoComplete="username"
                     required
-                    className="h-19 w-full rounded-3xl border border-[#e0def6] bg-white px-6 text-lg text-[#111827] shadow-[0_10px_30px_rgba(105,104,170,0.10)] outline-none transition-all duration-300 placeholder:text-[#9ca3af] focus:border-[#6968aa] focus:shadow-[0_12px_32px_rgba(105,104,170,0.18)]"
+                    className="h-14 w-full rounded-2xl border border-[#e0def6] bg-white px-4 text-base text-[#111827] shadow-[0_10px_30px_rgba(105,104,170,0.10)] outline-none transition-all duration-300 placeholder:text-[#9ca3af] focus:border-[#6968aa] focus:shadow-[0_12px_32px_rgba(105,104,170,0.18)] sm:h-19 sm:rounded-3xl sm:px-6 sm:text-lg"
                   />
 
                   <div className="relative">
@@ -449,13 +468,13 @@ export default function LoginPage() {
                       placeholder="Password"
                       autoComplete="current-password"
                       required
-                      className="h-19 w-full rounded-3xl border border-[#e0def6] bg-white px-6 pr-20 text-lg text-[#111827] shadow-[0_10px_30px_rgba(105,104,170,0.10)] outline-none transition-all duration-300 placeholder:text-[#9ca3af] focus:border-[#6968aa] focus:shadow-[0_12px_32px_rgba(105,104,170,0.18)]"
+                      className="h-14 w-full rounded-2xl border border-[#e0def6] bg-white px-4 pr-16 text-base text-[#111827] shadow-[0_10px_30px_rgba(105,104,170,0.10)] outline-none transition-all duration-300 placeholder:text-[#9ca3af] focus:border-[#6968aa] focus:shadow-[0_12px_32px_rgba(105,104,170,0.18)] sm:h-19 sm:rounded-3xl sm:px-6 sm:pr-20 sm:text-lg"
                     />
 
                     <button
                       type="button"
                       onClick={() => setShowPassword((value) => !value)}
-                      className="absolute right-5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full transition-all duration-300 hover:scale-110 active:scale-95"
+                      className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full transition-all duration-300 hover:scale-110 active:scale-95 sm:right-5 sm:h-11 sm:w-11"
                       style={{ backgroundColor: LOGIN_THEME.primarySoft }}
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
@@ -464,7 +483,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                <div className="mt-8 flex items-center justify-end text-base">
+                <div className="mt-5 flex items-center justify-end text-sm sm:mt-8 sm:text-base">
                   <button type="button" onClick={openForgotFlow} className="font-semibold transition" style={{ color: LOGIN_THEME.primary }}>
                     Forgot Password ?
                   </button>
@@ -476,17 +495,18 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                <div className="mt-10 flex justify-center">
+                <div className="mt-7 flex justify-center sm:mt-10">
                   <button
                     type="submit"
                     disabled={loading}
-                    className="h-18 w-full max-w-[320px] rounded-full text-xl font-bold text-white shadow-[0_16px_30px_rgba(15,118,110,0.28)] transition-all duration-300 hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-14 w-full max-w-[320px] rounded-full text-base font-bold text-white shadow-[0_16px_30px_rgba(15,118,110,0.28)] transition-all duration-300 hover:scale-[1.03] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:h-18 sm:text-xl"
                     style={{ backgroundColor: LOGIN_THEME.primary }}
                   >
                     {loading ? "LOGGING IN..." : "LOGIN"}
                   </button>
                 </div>
               </form>
+              </div>
             </div>
           </div>
         </section>

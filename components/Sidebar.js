@@ -46,7 +46,7 @@ export default function Sidebar({ user }) {
     <>
       {/* Mobile Toggle Button at top left */}
       <button
-        className="fixed top-4 left-4 z-50 md:hidden bg-primary text-white p-3 rounded-full shadow-lg focus:outline-none"
+        className="fixed left-3 top-3 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-white shadow-lg focus:outline-none md:hidden"
         onClick={() => setOpen((v) => !v)}
         aria-label="Toggle sidebar"
       >
@@ -58,11 +58,11 @@ export default function Sidebar({ user }) {
       </button>
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-screen w-64 bg-white shadow-xl flex flex-col p-6 z-20 transition-transform duration-300
+        className={`fixed left-0 top-0 z-20 flex h-screen w-[min(18rem,85vw)] flex-col overflow-y-auto bg-white p-4 shadow-xl transition-transform duration-300 md:w-64 md:p-6
         ${open ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
         style={{ minWidth: 240 }}
       >
-        <div className="flex flex-col items-center mb-10">
+        <div className="mb-6 flex flex-col items-center md:mb-10">
           <Image
             src="/logo.jpg"
             alt="Logo"
@@ -71,7 +71,7 @@ export default function Sidebar({ user }) {
             priority
           />
         </div>
-        <nav className="flex-1 w-full">
+        <nav className="w-full flex-1">
           <ul className="space-y-2">
             {visibleLinks.map((link) => {
               const Icon = sidebarIcons[link.label];
@@ -80,7 +80,7 @@ export default function Sidebar({ user }) {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className={`flex items-center px-4 py-3 rounded-lg font-medium transition-colors group ${isActive ? "bg-primary-10 text-primary font-bold" : "text-black"}`}
+                    className={`group flex items-center rounded-lg px-4 py-2.5 font-medium transition-colors md:py-3 ${isActive ? "bg-primary-10 text-primary font-bold" : "text-black"}`}
                     onClick={() => setOpen(false)}
                   >
                     {Icon && <Icon className={`text-2xl mr-4 ${isActive ? "text-primary" : "group-hover:text-primary"}`} />}

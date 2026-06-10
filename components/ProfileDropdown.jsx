@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { FaUserCircle, FaCog, FaSignOutAlt, FaSchool, FaChevronDown } from "react-icons/fa";
+import { FaSignOutAlt, FaSchool, FaChevronDown } from "react-icons/fa";
 import { getRoleLabel } from "@/lib/permissions";
 
 function getInitials(username) {
@@ -65,11 +65,11 @@ export default function ProfileDropdown({ user, onLogout }) {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+        className="flex cursor-pointer items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2 py-2 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:gap-3 sm:px-3"
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white sm:h-10 sm:w-10">
           {getInitials(user?.username)}
         </span>
         <span className="hidden text-left sm:block">
@@ -84,7 +84,7 @@ export default function ProfileDropdown({ user, onLogout }) {
       </button>
 
       <div
-        className={`absolute right-0 top-[calc(100%+0.75rem)] w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition-all duration-200 ${
+        className={`absolute right-0 top-[calc(100%+0.75rem)] w-[calc(100vw-1.5rem)] max-w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl transition-all duration-200 sm:w-72 ${
           open
             ? "pointer-events-auto translate-y-0 opacity-100"
             : "pointer-events-none -translate-y-2 opacity-0"
@@ -116,15 +116,6 @@ export default function ProfileDropdown({ user, onLogout }) {
           >
             <FaSchool className="text-slate-500" />
             School Profile
-          </Link>
-          <Link
-            href="/dashboard"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            role="menuitem"
-          >
-            <FaCog className="text-slate-500" />
-            Settings
           </Link>
           <button
             type="button"

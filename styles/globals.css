@@ -51,4 +51,24 @@
 	.bg-primary-10 { background-color: rgba(8,81,109,0.1) !important; }
 }
 
+@media (max-width: 767px) {
+	html,
+	body {
+		max-width: 100%;
+		overflow-x: hidden;
+	}
+
+	.overflow-x-auto {
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: thin;
+	}
+
+	.overflow-x-auto > table {
+		min-width: max-content;
+	}
+
+	.overflow-x-auto > table.min-w-full {
+		min-width: 720px;
+	}
+}
 
