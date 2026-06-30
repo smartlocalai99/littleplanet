@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import { getUserFromRequest } from "@/lib/auth";
 import Image from "next/image";
-const DEMO_WHATSAPP_CODE = "482916";
 
 const LOGIN_THEME = {
   primary: "#6968aa",
@@ -12,12 +11,6 @@ const LOGIN_THEME = {
   ink: "#000000",
   muted: "#6b7280",
   surface: "#ffffff",
-};
-
-const WHATSAPP_THEME = {
-  primary: "#25d366",
-  primaryDark: "#128c7e",
-  soft: "#eafaf1",
 };
 
 export async function getServerSideProps(context) {
@@ -65,15 +58,16 @@ function MobileLoginLogo() {
   );
 }
 
-function WhatsAppIcon({ className = "h-5 w-5" }) {
+function MailIcon({ className = "h-5 w-5" }) {
   return (
     <svg
-      viewBox="0 0 32 32"
-      fill="currentColor"
+      viewBox="0 0 24 24"
+      fill="none"
       className={className}
       aria-hidden="true"
     >
-      <path d="M16.04 3C9.46 3 4.1 8.26 4.1 14.74c0 2.08.56 4.12 1.62 5.9L4 29l8.56-1.68a12.1 12.1 0 0 0 3.48.51c6.58 0 11.94-5.26 11.94-11.74S22.62 3 16.04 3Zm0 22.77c-1.14 0-2.26-.18-3.32-.55l-.48-.16-5.08 1 1.02-4.9-.25-.5a9.71 9.71 0 0 1-1.36-4.92c0-5.34 4.25-9.68 9.47-9.68 5.22 0 9.47 4.34 9.47 9.68s-4.25 10.03-9.47 10.03Zm5.47-7.25c-.3-.15-1.78-.87-2.06-.97-.28-.1-.48-.15-.68.15-.2.3-.78.97-.96 1.17-.18.2-.35.22-.65.07-.3-.15-1.27-.46-2.42-1.48-.9-.78-1.5-1.75-1.68-2.05-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.08-.15-.68-1.62-.93-2.22-.25-.58-.5-.5-.68-.51h-.58c-.2 0-.52.07-.8.37-.28.3-1.05 1.02-1.05 2.48s1.08 2.88 1.23 3.08c.15.2 2.13 3.23 5.16 4.52.72.31 1.28.5 1.72.64.72.23 1.38.2 1.9.12.58-.09 1.78-.72 2.03-1.42.25-.7.25-1.3.18-1.42-.08-.12-.28-.2-.58-.35Z" />
+      <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" strokeWidth="2" />
+      <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -132,63 +126,98 @@ function EyeIcon({ visible }) {
   );
 }
 
-function WhatsAppFlowModal({
+function EmailRecoveryModal({
   open,
-  phone,
-  setPhone,
-  code,
-  setCode,
+  username,
+  setUsername,
+  otp,
+  setOtp,
+  newPassword,
+  setNewPassword,
+  confirmPassword,
+  setConfirmPassword,
   stage,
   setStage,
   busy,
   setBusy,
   error,
   setError,
+  maskedEmail,
+  setMaskedEmail,
   onClose,
 }) {
   if (!open) {
     return null;
   }
 
-  async function handleSendCode(event) {
+  async function handleRequestOtp(event) {
     event.preventDefault();
     setError("");
 
-    if (!phone.trim()) {
-      setError("Enter a username or WhatsApp number to continue.");
+    if (!username.trim()) {
+      setError("Enter your username to continue.");
       return;
     }
 
     setBusy(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 900));
-      setStage("verify");
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim() }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to send the reset code");
+      }
+
+      setMaskedEmail(data.maskedEmail || "");
+      setStage("reset");
+    } catch (requestError) {
+      setError(requestError.message || "Unable to send the reset code");
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleVerifyCode(event) {
+  async function handleResetPassword(event) {
     event.preventDefault();
     setError("");
 
-    if (code.trim().length !== 6) {
-      setError("Enter the 6-digit code sent to WhatsApp.");
+    if (otp.trim().length !== 6) {
+      setError("Enter the 6-digit code sent to your email.");
+      return;
+    }
+
+    if (newPassword.length < 4) {
+      setError("New password must be at least 4 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
 
     setBusy(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 700));
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), otp: otp.trim(), newPassword }),
+      });
+      const data = await response.json();
 
-      if (code.trim() !== DEMO_WHATSAPP_CODE) {
-        setError("That code does not match the demo WhatsApp message.");
-        return;
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to reset password");
       }
 
       setStage("success");
+    } catch (resetError) {
+      setError(resetError.message || "Unable to reset password");
     } finally {
       setBusy(false);
     }
@@ -209,7 +238,7 @@ function WhatsAppFlowModal({
                 Secure recovery
               </p>
               <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
-                {stage === "verify" ? "Enter the code" : stage === "success" ? "Code verified" : "Recover access on WhatsApp"}
+                {stage === "reset" ? "Check your email" : stage === "success" ? "Password updated" : "Recover access by email"}
               </h2>
             </div>
 
@@ -226,48 +255,86 @@ function WhatsAppFlowModal({
         <div className="space-y-6 px-6 py-6 sm:px-8">
           <div className="rounded-3xl border border-[#e0def6] bg-[#f8f7ff] p-4">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#5e5c9a]">
-              WhatsApp recovery
+              Email recovery
             </p>
             <p className="mt-2 text-sm leading-6 text-[#5a587f]">
-              We&apos;ll send a one-time code to your mobile number on WhatsApp. Enter that code here to continue.
+              {stage === "reset"
+                ? `We sent a one-time code to ${maskedEmail || "your email"}. Enter it below with your new password.`
+                : "Enter your username and we'll email a one-time code to the address on file."}
             </p>
           </div>
 
-          <form onSubmit={stage === "verify" ? handleVerifyCode : handleSendCode} className="space-y-4">
+          <form onSubmit={stage === "reset" ? handleResetPassword : handleRequestOtp} className="space-y-4">
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[#1f1f2d]">
-                Mobile number
+                Username
               </span>
               <input
-                value={phone}
+                value={username}
                 onChange={(event) => {
-                  setPhone(event.target.value);
+                  setUsername(event.target.value);
                   setError("");
                 }}
-                placeholder="Enter your mobile number"
-                className="h-14.5 w-full rounded-2xl border border-[#e0def6] bg-white px-4 text-base text-[#111827] outline-none transition focus:border-[#6968aa] focus:shadow-[0_0_0_4px_rgba(105,104,170,0.12)]"
-                autoComplete="tel"
-                inputMode="tel"
+                placeholder="Enter your username"
+                className="h-14.5 w-full rounded-2xl border border-[#e0def6] bg-white px-4 text-base text-[#111827] outline-none transition focus:border-[#6968aa] focus:shadow-[0_0_0_4px_rgba(105,104,170,0.12)] disabled:bg-[#f8f7ff] disabled:text-[#6b7280]"
+                autoComplete="username"
+                disabled={stage === "reset"}
               />
             </label>
 
-            {stage === "verify" && (
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold text-[#1f1f2d]">
-                  6-digit code
-                </span>
-                <input
-                  value={code}
-                  onChange={(event) => {
-                    setCode(event.target.value.replace(/\D/g, "").slice(0, 6));
-                    setError("");
-                  }}
-                  placeholder="Enter the code"
-                  className="h-14.5 w-full rounded-2xl border border-[#e0def6] bg-white px-4 text-base tracking-[0.35em] text-[#111827] outline-none transition focus:border-[#6968aa] focus:shadow-[0_0_0_4px_rgba(105,104,170,0.12)]"
-                  inputMode="numeric"
-                  maxLength={6}
-                />
-              </label>
+            {stage === "reset" && (
+              <>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[#1f1f2d]">
+                    6-digit code
+                  </span>
+                  <input
+                    value={otp}
+                    onChange={(event) => {
+                      setOtp(event.target.value.replace(/\D/g, "").slice(0, 6));
+                      setError("");
+                    }}
+                    placeholder="Enter the code"
+                    className="h-14.5 w-full rounded-2xl border border-[#e0def6] bg-white px-4 text-base tracking-[0.35em] text-[#111827] outline-none transition focus:border-[#6968aa] focus:shadow-[0_0_0_4px_rgba(105,104,170,0.12)]"
+                    inputMode="numeric"
+                    maxLength={6}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[#1f1f2d]">
+                    New password
+                  </span>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(event) => {
+                      setNewPassword(event.target.value);
+                      setError("");
+                    }}
+                    placeholder="Enter a new password"
+                    className="h-14.5 w-full rounded-2xl border border-[#e0def6] bg-white px-4 text-base text-[#111827] outline-none transition focus:border-[#6968aa] focus:shadow-[0_0_0_4px_rgba(105,104,170,0.12)]"
+                    autoComplete="new-password"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[#1f1f2d]">
+                    Confirm new password
+                  </span>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => {
+                      setConfirmPassword(event.target.value);
+                      setError("");
+                    }}
+                    placeholder="Re-enter the new password"
+                    className="h-14.5 w-full rounded-2xl border border-[#e0def6] bg-white px-4 text-base text-[#111827] outline-none transition focus:border-[#6968aa] focus:shadow-[0_0_0_4px_rgba(105,104,170,0.12)]"
+                    autoComplete="new-password"
+                  />
+                </label>
+              </>
             )}
 
             {error && (
@@ -276,16 +343,9 @@ function WhatsAppFlowModal({
               </div>
             )}
 
-            {stage === "verify" && !error && (
-              <div className="rounded-2xl border border-[#dff2e6] bg-[#f2fff6] px-4 py-3 text-sm text-[#2c6b44]">
-                Code sent to WhatsApp ending in <span className="font-semibold">{phone.trim().slice(-2) || "••"}</span>.
-                Use demo code <span className="font-semibold">{DEMO_WHATSAPP_CODE}</span>.
-              </div>
-            )}
-
             {stage === "success" && (
               <div className="rounded-2xl border border-[#dff2e6] bg-[#f2fff6] px-4 py-3 text-sm text-[#2c6b44]">
-                Code accepted. You can return to login and continue.
+                Your password has been updated. You can log in with your new password now.
               </div>
             )}
 
@@ -298,22 +358,22 @@ function WhatsAppFlowModal({
                 Cancel
               </button>
 
-              {stage === "verify" ? (
+              {stage === "reset" ? (
                 <button
                   type="submit"
                   disabled={busy}
                   className="flex h-13 items-center gap-2 rounded-full px-6 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
-                  style={{ backgroundColor: WHATSAPP_THEME.primary }}
+                  style={{ backgroundColor: LOGIN_THEME.primary }}
                 >
-                  <WhatsAppIcon className="h-5 w-5" />
-                  {busy ? "Checking..." : "Verify on WhatsApp"}
+                  <MailIcon className="h-5 w-5" />
+                  {busy ? "Updating..." : "Reset password"}
                 </button>
               ) : stage === "success" ? (
                 <button
                   type="button"
                   onClick={onClose}
                   className="h-13 rounded-full px-6 text-sm font-semibold text-white transition hover:opacity-95"
-                  style={{ backgroundColor: WHATSAPP_THEME.primaryDark }}
+                  style={{ backgroundColor: LOGIN_THEME.primary }}
                 >
                   Back to login
                 </button>
@@ -322,10 +382,10 @@ function WhatsAppFlowModal({
                   type="submit"
                   disabled={busy}
                   className="flex h-13 items-center gap-2 rounded-full px-6 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
-                  style={{ backgroundColor: WHATSAPP_THEME.primary }}
+                  style={{ backgroundColor: LOGIN_THEME.primary }}
                 >
-                  <WhatsAppIcon className="h-5 w-5" />
-                  {busy ? "Sending..." : "Send code on WhatsApp"}
+                  <MailIcon className="h-5 w-5" />
+                  {busy ? "Sending..." : "Send code by email"}
                 </button>
               )}
             </div>
@@ -344,10 +404,13 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotStage, setForgotStage] = useState("request");
-  const [forgotPhone, setForgotPhone] = useState("");
-  const [forgotCode, setForgotCode] = useState("");
+  const [forgotUsername, setForgotUsername] = useState("");
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
   const [forgotBusy, setForgotBusy] = useState(false);
   const [forgotError, setForgotError] = useState("");
+  const [forgotMaskedEmail, setForgotMaskedEmail] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -356,19 +419,25 @@ export default function LoginPage() {
     event.preventDefault();
     setForgotOpen(true);
     setForgotStage("request");
-    setForgotPhone(username);
-    setForgotCode("");
+    setForgotUsername(username);
+    setForgotOtp("");
+    setForgotNewPassword("");
+    setForgotConfirmPassword("");
     setForgotError("");
     setForgotBusy(false);
+    setForgotMaskedEmail("");
   }
 
   function closeForgotFlow() {
     setForgotOpen(false);
     setForgotStage("request");
-    setForgotPhone("");
-    setForgotCode("");
+    setForgotUsername("");
+    setForgotOtp("");
+    setForgotNewPassword("");
+    setForgotConfirmPassword("");
     setForgotError("");
     setForgotBusy(false);
+    setForgotMaskedEmail("");
   }
 
   async function handleSubmit(event) {
@@ -512,18 +581,24 @@ export default function LoginPage() {
         </section>
       </div>
 
-      <WhatsAppFlowModal
+      <EmailRecoveryModal
         open={forgotOpen}
-        phone={forgotPhone}
-        setPhone={setForgotPhone}
-        code={forgotCode}
-        setCode={setForgotCode}
+        username={forgotUsername}
+        setUsername={setForgotUsername}
+        otp={forgotOtp}
+        setOtp={setForgotOtp}
+        newPassword={forgotNewPassword}
+        setNewPassword={setForgotNewPassword}
+        confirmPassword={forgotConfirmPassword}
+        setConfirmPassword={setForgotConfirmPassword}
         stage={forgotStage}
         setStage={setForgotStage}
         busy={forgotBusy}
         setBusy={setForgotBusy}
         error={forgotError}
         setError={setForgotError}
+        maskedEmail={forgotMaskedEmail}
+        setMaskedEmail={setForgotMaskedEmail}
         onClose={closeForgotFlow}
       />
     </main>
