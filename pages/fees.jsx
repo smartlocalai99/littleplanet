@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FaFileExcel, FaPlus, FaReceipt, FaSyncAlt, FaTrash } from "react-icons/fa";
 import Swal from "sweetalert2";
 import { withAuthPage } from "@/lib/withAuthPage";
@@ -319,12 +319,14 @@ export default function FeesPage() {
   const [phonePePayment, setPhonePePayment] = useState(null);
   const [copyLinkLabel, setCopyLinkLabel] = useState("Copy Link");
   const [admissionSearch, setAdmissionSearch] = useState("");
-  const [whatsappStatus, setWhatsappStatus] = useState({
-    loading: true,
-    connected: false,
-    error: "",
+  const [whatsapp, setWhatsapp] = useState({
+    phase: "idle", // idle | connecting | connected
     qrUrl: "",
+    error: "",
+    user: null,
+    limits: {},
   });
+  const whatsappActiveRef = useRef(false);
 
   const [ledgerSearch, setLedgerSearch] = useState("");
   const [ledgerClass, setLedgerClass] = useState("All");
@@ -411,30 +413,55 @@ export default function FeesPage() {
     );
   }, [admissionOptions, admissionSearch]);
 
-  async function loadWhatsappStatus() {
-    setWhatsappStatus((current) => ({ ...current, loading: true }));
+  async function fetchWhatsappStatus() {
+    const response = await fetch("/api/whatsapp/status");
+    return response.json();
+  }
+
+  function stopWhatsappConnect() {
+    whatsappActiveRef.current = false;
+    setWhatsapp((current) => ({ ...current, phase: "idle" }));
+  }
+
+  async function startWhatsappConnect() {
+    whatsappActiveRef.current = true;
+    setWhatsapp({ phase: "connecting", qrUrl: "", error: "", user: null, limits: {} });
 
     try {
-      const response = await fetch("/api/whatsapp/status");
-      const data = await response.json();
+      let data = await fetchWhatsappStatus();
 
-      setWhatsappStatus({
-        loading: false,
-        connected: Boolean(data.connected),
-        connecting: Boolean(data.connecting),
-        error: data.success ? "" : data.error || "WhatsApp status failed",
-        qrUrl: data.qrUrl || "",
-        state: data.state || "",
-        user: data.user || null,
-        limits: data.limits || {},
-      });
+      while (whatsappActiveRef.current && !data.connected) {
+        setWhatsapp((current) => ({
+          ...current,
+          qrUrl: data.qrUrl || "",
+          error: data.success ? "" : data.error || "Unable to reach WhatsApp",
+        }));
+
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+
+        if (!whatsappActiveRef.current) {
+          return;
+        }
+
+        data = await fetchWhatsappStatus();
+      }
+
+      if (data.connected) {
+        setWhatsapp({
+          phase: "connected",
+          qrUrl: "",
+          error: "",
+          user: data.user || null,
+          limits: data.limits || {},
+        });
+      }
     } catch (error) {
-      setWhatsappStatus((current) => ({
+      setWhatsapp((current) => ({
         ...current,
-        loading: false,
-        connected: false,
-        error: error.message || "WhatsApp status failed",
+        error: error.message || "Unable to check WhatsApp status",
       }));
+    } finally {
+      whatsappActiveRef.current = false;
     }
   }
 
@@ -490,14 +517,7 @@ export default function FeesPage() {
     };
   }, [month, autoNotify, feesVersion]);
 
-  useEffect(() => {
-    void loadWhatsappStatus();
-    const intervalId = window.setInterval(loadWhatsappStatus, 30000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, []);
+  useEffect(() => stopWhatsappConnect, []);
 
   const filteredLedgerRows = useMemo(() => {
     const search = ledgerSearch.trim().toLowerCase();
@@ -1348,58 +1368,68 @@ export default function FeesPage() {
                 WhatsApp
               </p>
               <h2 className="mt-2 text-xl font-black text-slate-900">
-                Receipt sender is{" "}
-                <span
-                  className={
-                    whatsappStatus.connected
-                      ? "text-emerald-700"
-                      : "text-amber-700"
-                  }
-                >
-                  {whatsappStatus.loading
-                    ? "checking"
-                    : whatsappStatus.connected
-                    ? "connected"
-                    : "not connected"}
-                </span>
+                Receipt sender
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                {whatsappStatus.connected
-                  ? `Logged in as ${
-                      whatsappStatus.user?.name ||
-                      whatsappStatus.user?.id ||
-                      "WhatsApp"
-                    }. Remaining today: ${
-                      whatsappStatus.limits?.remainingToday ?? "-"
-                    }.`
-                  : whatsappStatus.error ||
-                    "Open the QR page and scan it from WhatsApp Linked Devices."}
+                {whatsapp.phase === "connected"
+                  ? `Connected as ${
+                      whatsapp.user?.name || whatsapp.user?.id || "WhatsApp"
+                    }. Remaining today: ${whatsapp.limits?.remainingToday ?? "-"}.`
+                  : "Connect WhatsApp to send fee receipts automatically."}
               </p>
+              {whatsapp.error && (
+                <p className="mt-2 text-sm font-medium text-rose-600">
+                  {whatsapp.error}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={loadWhatsappStatus}
-                disabled={whatsappStatus.loading}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <FaSyncAlt />
-                Refresh
-              </button>
-
-              {whatsappStatus.qrUrl && (
-                <a
-                  href={whatsappStatus.qrUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center rounded-2xl bg-green-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-green-500"
+              {whatsapp.phase === "connecting" ? (
+                <button
+                  type="button"
+                  onClick={stopWhatsappConnect}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                 >
-                  {whatsappStatus.connected ? "Open WhatsApp status" : "Connect WhatsApp"}
-                </a>
+                  Cancel
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={startWhatsappConnect}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-green-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-green-500"
+                >
+                  <WhatsAppIcon />
+                  {whatsapp.phase === "connected" ? "Connect a different phone" : "Connect WhatsApp"}
+                </button>
               )}
             </div>
           </div>
+
+          {whatsapp.phase === "connecting" && (
+            <div className="mt-5 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+              {whatsapp.qrUrl ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={whatsapp.qrUrl}
+                    alt="WhatsApp connection QR code"
+                    className="h-56 w-56 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+                  />
+                  <p className="text-sm font-semibold text-slate-700">
+                    Open WhatsApp on the school phone, go to Linked Devices, and scan this code.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <FaSyncAlt className="animate-spin text-2xl text-slate-400" />
+                  <p className="text-sm font-semibold text-slate-600">
+                    Waiting for a QR code...
+                  </p>
+                </>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="mb-6 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm md:p-8">
