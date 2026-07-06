@@ -102,7 +102,6 @@ export default function Admissions() {
         admission.class_applying_for,
         admission.father_name,
         admission.mother_name,
-        admission.fees,
       ]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query));
@@ -277,10 +276,7 @@ export default function Admissions() {
                     <th className="border-b border-slate-200 px-4 py-3">Class</th>
                     <th className="border-b border-slate-200 px-4 py-3">Parent</th>
                     <th className="border-b border-slate-200 px-4 py-3">Status</th>
-<th className="border-b border-slate-200 px-4 py-3">Total Fees</th>
-<th className="border-b border-slate-200 px-4 py-3">Discount</th>
-<th className="border-b border-slate-200 px-4 py-3">Final Fee</th>
-<th className="border-b border-slate-200 px-4 py-3">Actions</th>                  </tr>
+                    <th className="border-b border-slate-200 px-4 py-3">Actions</th>                  </tr>
                 </thead>
                 <tbody>
                   {filteredAdmissions.map((admission) => (
@@ -303,18 +299,7 @@ export default function Admissions() {
                           {admission.admission_status || "NEW"}
                         </span>
                       </td>
-                    <td className="border-b border-slate-100 px-4 py-4 text-sm font-semibold text-slate-700">
-  {formatCurrency(admission.fees)}
-</td>
-
-<td className="border-b border-slate-100 px-4 py-4 text-sm font-semibold text-red-600">
-  {Number(admission.discount || 0)}%
-</td>
-
-<td className="border-b border-slate-100 px-4 py-4 text-sm font-black text-emerald-700">
-  {formatCurrency(admission.final_fee)}
-</td>
-<td className="border-b border-slate-100 px-4 py-4">
+                      <td className="border-b border-slate-100 px-4 py-4">
   <div className="flex flex-wrap gap-2">
     <button
       type="button"
@@ -375,13 +360,7 @@ function AdmissionEditModal({ admission, saving, onClose, onSave }) {
     emergency_contact: admission.emergency_contact || "",
     admission_status: admission.admission_status || "NEW",
     admission_fee_mode: admission.admission_fee_mode || "",
-    fees: admission.fees || "",
-    discount: admission.discount || "",
   });
-
-  const fees = Number(form.fees || 0);
-  const discount = Number(form.discount || 0);
-  const finalFee = Math.max(fees - Math.round((fees * discount) / 100), 0);
 
   function updateField(event) {
     const { name, value } = event.target;
@@ -402,10 +381,6 @@ function AdmissionEditModal({ admission, saving, onClose, onSave }) {
             <h2 className="text-xl font-black text-slate-900">Edit admission</h2>
             <p className="mt-1 text-sm text-slate-500">Admission #{admission.id}</p>
           </div>
-          <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-right">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Final fee</p>
-            <p className="mt-1 text-lg font-black text-emerald-800">{formatCurrency(finalFee)}</p>
-          </div>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -425,8 +400,6 @@ function AdmissionEditModal({ admission, saving, onClose, onSave }) {
             ["mother_mobile", "Mother mobile", "text"],
             ["guardian_name", "Guardian name", "text"],
             ["emergency_contact", "Emergency contact", "text"],
-            ["fees", "Total fees", "number"],
-            ["discount", "Discount %", "number"],
           ].map(([name, label, type]) => (
             <label key={name} className="text-sm font-semibold text-slate-700">
               {label}

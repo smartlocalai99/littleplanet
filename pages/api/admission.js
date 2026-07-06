@@ -30,10 +30,6 @@ function cleanValue(value) {
   return value;
 }
 
-function cleanNumber(value) {
-  const number = Number(value);
-  return Number.isFinite(number) && number >= 0 ? number : 0;
-}
 
 export default async function handler(req, res) {
   try {
@@ -78,10 +74,7 @@ export default async function handler(req, res) {
           admission_status,
           created_at,
           parent_id,
-          admission_fee_mode,
-          fees,
-          discount,
-          final_fee
+          admission_fee_mode
         FROM public.admissions
         ORDER BY created_at DESC, id DESC
         `
@@ -168,10 +161,6 @@ export default async function handler(req, res) {
       }
 
       const body = req.body || {};
-      const fees = cleanNumber(body.fees);
-      const discount = cleanNumber(body.discount);
-      const discountAmount = Math.round((fees * discount) / 100);
-      const finalFee = Math.max(fees - discountAmount, 0);
       const client = await pool.connect();
 
       try {
@@ -196,11 +185,8 @@ export default async function handler(req, res) {
                 guardian_name = $14,
                 emergency_contact = $15,
                 admission_status = $16,
-                admission_fee_mode = $17,
-                fees = $18,
-                discount = $19,
-                final_fee = $20
-            WHERE id = $21
+                admission_fee_mode = $17
+            WHERE id = $18
             RETURNING *
           `,
           [
@@ -221,9 +207,6 @@ export default async function handler(req, res) {
             cleanValue(body.emergency_contact),
             cleanValue(body.admission_status) || "NEW",
             cleanValue(body.admission_fee_mode),
-            fees,
-            discount,
-            finalFee,
             admissionId,
           ]
         );
@@ -309,13 +292,6 @@ export default async function handler(req, res) {
 
     const body = req.body;
 
-    const fees = cleanNumber(body.fees);
-    const discount = cleanNumber(body.discount);
-
-    // discount is percentage
-    const discountAmount = Math.round((fees * discount) / 100);
-    const finalFee = Math.max(fees - discountAmount, 0);
-
     const client = await pool.connect();
 
     try {
@@ -362,10 +338,6 @@ export default async function handler(req, res) {
             program,
             admission_fee_mode,
 
-            fees,
-            discount,
-            final_fee,
-
             father_name,
             father_mobile,
             father_occupation,
@@ -399,13 +371,11 @@ export default async function handler(req, res) {
 
             $19, $20, $21,
 
-            $22, $23, $24,
+            $22,
 
-            $25,
+            $23, $24, $25, $26, $27,
 
-            $26, $27, $28, $29, $30,
-
-            $31, $32, $33, $34, $35, $36, $37, $38
+            $28, $29, $30, $31, $32, $33, $34, $35
           )
           RETURNING *;
         `,
@@ -426,10 +396,6 @@ export default async function handler(req, res) {
           cleanValue(body.medium),
           cleanValue(body.program),
           cleanValue(body.admission_fee_mode),
-
-          fees,
-          discount,
-          finalFee,
 
           cleanValue(body.father_name),
           cleanValue(body.father_mobile),

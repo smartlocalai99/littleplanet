@@ -33,17 +33,6 @@ export default function AdmissionForm({ embedded = false }) {
   const [savedAdmission, setSavedAdmission] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
 
-  const toNumber = (value) => {
-    const number = Number(value);
-    return Number.isFinite(number) && number >= 0 ? number : 0;
-  };
-
-  const feesAmount = toNumber(form.fees);
-  const discountPercent = toNumber(form.discount);
-  const discountAmount = Math.round((feesAmount * discountPercent) / 100);
-  const finalFeeAmount = Math.max(feesAmount - discountAmount, 0);
-  const isDiscountInvalid = discountPercent > 100;
-
   const formatCurrency = (value) => {
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
@@ -189,24 +178,6 @@ export default function AdmissionForm({ embedded = false }) {
         icon: "warning",
         title: "Missing Class",
         text: "Please enter class applying for.",
-      });
-      return false;
-    }
-
-    if (!feesAmount || feesAmount <= 0) {
-      Swal.fire({
-        icon: "warning",
-        title: "Missing Fees",
-        text: "Please enter total school fees.",
-      });
-      return false;
-    }
-
-    if (isDiscountInvalid) {
-      Swal.fire({
-        icon: "warning",
-        title: "Invalid Discount",
-        text: "Discount percentage cannot be more than 100%.",
       });
       return false;
     }
@@ -423,9 +394,6 @@ export default function AdmissionForm({ embedded = false }) {
       ...form,
       class_applying: formatClassName(form.class_applying),
       previous_class: formatClassName(form.previous_class),
-      fees: feesAmount,
-      discount: discountPercent,
-      final_fee: finalFeeAmount,
     };
 
     try {
@@ -492,9 +460,6 @@ export default function AdmissionForm({ embedded = false }) {
 
   const receiptData = savedAdmission || {
     ...form,
-    fees: feesAmount,
-    discount: discountPercent,
-    final_fee: finalFeeAmount,
     created_at: new Date().toISOString(),
   };
 
@@ -649,78 +614,9 @@ export default function AdmissionForm({ embedded = false }) {
             </Section>
           </div>
 
-          <Section title="Fee Details">
-            <Input
-              label="Total School Fees"
-              type="number"
-              name="fees"
-              min="0"
-              inputMode="numeric"
-              onChange={handleChange}
-              value={form.fees || ""}
-              placeholder="Enter total school fees"
-            />
-
-            <Input
-              label="Discount (%)"
-              type="number"
-              name="discount"
-              min="0"
-              max="100"
-              inputMode="numeric"
-              onChange={handleChange}
-              value={form.discount || ""}
-              placeholder="Enter discount percentage"
-            />
-
-            <div>
-              {isDiscountInvalid && (
-                <p className="mt-2 text-xs font-medium text-red-600">
-                  Discount percentage cannot be more than 100%.
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 md:col-span-2 lg:col-span-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Fee Summary
-              </p>
-
-              <div className="mt-3 grid gap-3 text-sm md:grid-cols-4">
-                <div className="rounded-lg bg-white p-3">
-                  <p className="text-slate-500">Total School Fees</p>
-                  <p className="mt-1 font-bold text-slate-900">
-                    {formatCurrency(feesAmount)}
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-white p-3">
-                  <p className="text-slate-500">Discount</p>
-                  <p className="mt-1 font-bold text-red-600">
-                    {discountPercent || 0}%
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-white p-3">
-                  <p className="text-slate-500">Discount Amount</p>
-                  <p className="mt-1 font-bold text-red-600">
-                    - {formatCurrency(discountAmount)}
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-emerald-50 p-3">
-                  <p className="text-emerald-700">Final School Fee</p>
-                  <p className="mt-1 font-black text-emerald-800">
-                    {formatCurrency(finalFeeAmount)}
-                  </p>
-                </div>
-              </div>
-
-              <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-800">
-                Admission confirmation receipt will be for fixed ₹2,000 only.
-              </p>
-            </div>
-          </Section>
+          <div className="rounded-lg bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+            Admission confirmation receipt will be for fixed ₹2,000 only.
+          </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Section title="Parent Details">
@@ -871,7 +767,7 @@ export default function AdmissionForm({ embedded = false }) {
           <button
             type="button"
             onClick={openReceiptPreview}
-            disabled={loading || isDiscountInvalid}
+            disabled={loading}
             className="w-full rounded-xl bg-black py-3 text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Preview Receipt
@@ -1017,10 +913,6 @@ function ReceiptCopy({
   const paidFee = ADMISSION_CONFIRMATION_FEE;
   const balanceFee = 0;
 
-  const schoolTotalFee = Number(data?.fees || 0);
-  const schoolDiscount = Number(data?.discount || 0);
-  const schoolFinalFee = Number(data?.final_fee || 0);
-
   return (
     <div className="receipt-copy border-2 border-black bg-white text-[11px] leading-tight text-black">
       <div className="receipt-p-2 border-b-2 border-black text-center">
@@ -1120,18 +1012,6 @@ className="receipt-logo h-28 w-[420px] object-contain"          />
 
       <div className="receipt-p-1 border-b border-black font-black">
         Rupees {numberToWords(paidFee)} Only
-      </div>
-
-      <div className="receipt-p-1 border-b border-black">
-        <p className="font-black">School Fee Details:</p>
-        <p className="mt-1 text-[10px]">
-          Total School Fee: ₹{formatAmountPlain(schoolTotalFee)} | Discount:{" "}
-          {schoolDiscount}% | Final School Fee: ₹
-          {formatAmountPlain(schoolFinalFee)}
-        </p>
-        <p className="mt-1 text-[10px] font-semibold">
-          This receipt confirms only the admission confirmation fee payment.
-        </p>
       </div>
 
       <div className="grid grid-cols-2 text-[10px]">
