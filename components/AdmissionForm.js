@@ -676,9 +676,7 @@ export default function AdmissionForm({ embedded = false }) {
           onClose={closeReceiptPreview}
           onSaveAndPrint={handleSaveAndPrint}
           onPrintAgain={printAgain}
-          formatAmountPlain={formatAmountPlain}
           formatDate={formatDate}
-          numberToWords={numberToWords}
         />
       )}
     </>
@@ -692,9 +690,7 @@ function ReceiptPreviewModal({
   onClose,
   onSaveAndPrint,
   onPrintAgain,
-  formatAmountPlain,
   formatDate,
-  numberToWords,
 }) {
   return (
     <div className="receipt-modal-shell fixed inset-0 z-50 overflow-auto bg-black/60 p-4 backdrop-blur-sm">
@@ -746,9 +742,7 @@ function ReceiptPreviewModal({
           <ReceiptSheet
             data={data}
             isSaved={isSaved}
-            formatAmountPlain={formatAmountPlain}
             formatDate={formatDate}
-            numberToWords={numberToWords}
           />
         </div>
       </div>
@@ -756,30 +750,20 @@ function ReceiptPreviewModal({
   );
 }
 
-function ReceiptSheet({
-  data,
-  isSaved,
-  formatAmountPlain,
-  formatDate,
-  numberToWords,
-}) {
+function ReceiptSheet({ data, isSaved, formatDate }) {
   return (
     <div className="print-receipt-sheet grid gap-6 md:grid-cols-2">
       <ReceiptCopy
         data={data}
         isSaved={isSaved}
-        formatAmountPlain={formatAmountPlain}
         formatDate={formatDate}
-        numberToWords={numberToWords}
         copyLabel="School Copy"
       />
 
       <ReceiptCopy
         data={data}
         isSaved={isSaved}
-        formatAmountPlain={formatAmountPlain}
         formatDate={formatDate}
-        numberToWords={numberToWords}
         copyLabel="Parent Copy"
       />
     </div>
@@ -789,9 +773,7 @@ function ReceiptSheet({
 function ReceiptCopy({
   data,
   isSaved,
-  formatAmountPlain,
   formatDate,
-  numberToWords,
   copyLabel,
 }) {
   const receiptNo =
