@@ -3,8 +3,6 @@
 import React, { useState } from "react";
 import Swal from "sweetalert2";
 
-const ADMISSION_CONFIRMATION_FEE = 2000;
-
 const SCHOOL_NAME = "Little Planet";
 const SCHOOL_ADDRESS = "Prakash Nagar, Kadapa, Andhra Pradesh";
 const SCHOOL_PHONE = "00000 00000";
@@ -41,12 +39,6 @@ export default function AdmissionForm({ embedded = false }) {
     }).format(Number(value) || 0);
   };
 
-  const formatAmountPlain = (value) => {
-    return new Intl.NumberFormat("en-IN", {
-      maximumFractionDigits: 0,
-    }).format(Number(value) || 0);
-  };
-
   const formatDate = (value) => {
     const date = value ? new Date(value) : new Date();
 
@@ -59,92 +51,6 @@ export default function AdmissionForm({ embedded = false }) {
       month: "2-digit",
       year: "numeric",
     });
-  };
-
-  const numberToWords = (num) => {
-    const number = Math.floor(Number(num) || 0);
-
-    if (number === 0) return "Zero";
-
-    const ones = [
-      "",
-      "One",
-      "Two",
-      "Three",
-      "Four",
-      "Five",
-      "Six",
-      "Seven",
-      "Eight",
-      "Nine",
-      "Ten",
-      "Eleven",
-      "Twelve",
-      "Thirteen",
-      "Fourteen",
-      "Fifteen",
-      "Sixteen",
-      "Seventeen",
-      "Eighteen",
-      "Nineteen",
-    ];
-
-    const tens = [
-      "",
-      "",
-      "Twenty",
-      "Thirty",
-      "Forty",
-      "Fifty",
-      "Sixty",
-      "Seventy",
-      "Eighty",
-      "Ninety",
-    ];
-
-    const convertBelowThousand = (n) => {
-      let words = "";
-
-      if (n >= 100) {
-        words += ones[Math.floor(n / 100)] + " Hundred ";
-        n %= 100;
-      }
-
-      if (n >= 20) {
-        words += tens[Math.floor(n / 10)] + " ";
-        n %= 10;
-      }
-
-      if (n > 0) {
-        words += ones[n] + " ";
-      }
-
-      return words.trim();
-    };
-
-    let n = number;
-    let words = "";
-
-    if (n >= 10000000) {
-      words += convertBelowThousand(Math.floor(n / 10000000)) + " Crore ";
-      n %= 10000000;
-    }
-
-    if (n >= 100000) {
-      words += convertBelowThousand(Math.floor(n / 100000)) + " Lakh ";
-      n %= 100000;
-    }
-
-    if (n >= 1000) {
-      words += convertBelowThousand(Math.floor(n / 1000)) + " Thousand ";
-      n %= 1000;
-    }
-
-    if (n > 0) {
-      words += convertBelowThousand(n);
-    }
-
-    return words.trim();
   };
 
   const handleChange = (e) => {
@@ -555,16 +461,6 @@ export default function AdmissionForm({ embedded = false }) {
                 value={form.religion || ""}
               />
 
-              <Select
-                label="Admission Fee Mode"
-                name="admission_fee_mode"
-                onChange={handleChange}
-                value={form.admission_fee_mode || ""}
-              >
-                <option value="">Select Payment Mode</option>
-                <option value="PhonePe">PhonePe</option>
-                <option value="Cash">Cash</option>
-              </Select>
             </Section>
 
             <Section title="Academic Details">
@@ -614,9 +510,6 @@ export default function AdmissionForm({ embedded = false }) {
             </Section>
           </div>
 
-          <div className="rounded-lg bg-amber-50 p-4 text-sm font-semibold text-amber-800">
-            Admission confirmation receipt will be for fixed ₹2,000 only.
-          </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Section title="Parent Details">
@@ -909,10 +802,6 @@ function ReceiptCopy({
       ? `QH-${String(data.id).padStart(5, "0")}`
       : "Will generate after submit";
 
-  const admissionFee = ADMISSION_CONFIRMATION_FEE;
-  const paidFee = ADMISSION_CONFIRMATION_FEE;
-  const balanceFee = 0;
-
   return (
     <div className="receipt-copy border-2 border-black bg-white text-[11px] leading-tight text-black">
       <div className="receipt-p-2 border-b-2 border-black text-center">
@@ -961,66 +850,10 @@ className="receipt-logo h-28 w-[420px] object-contain"          />
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_95px] border-b border-black">
-        <div className="receipt-p-1 border-r border-black text-center font-black">
-          Admission Payment Details
-        </div>
-
-        <div className="receipt-p-1 text-center font-black">Amount</div>
-      </div>
-
-      <div className="grid grid-cols-[1fr_95px] border-b border-black">
-        <div className="receipt-p-2 border-r border-black">
-          <p className="font-black">Admission Confirmation Fee</p>
-          <p className="mt-1 text-[10px]">
-            Payment Mode: {data?.admission_fee_mode || "-"}
-          </p>
-        </div>
-
-        <div className="receipt-p-2 flex items-center justify-end font-black">
-          {formatAmountPlain(admissionFee)}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-[1fr_95px] border-b border-black bg-gray-200">
-        <div className="receipt-p-1 border-r border-black font-black">
-          Admission Fee Paid
-        </div>
-
-        <div className="receipt-p-1 text-right font-black">
-          {formatAmountPlain(paidFee)}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-[1fr_95px] border-b border-black">
-        <div className="receipt-p-2 border-r border-black">
-          <div className="space-y-1 pl-8 font-black">
-            <p>Admission Fee</p>
-            <p>Paid Fee</p>
-            <p>Balance Fee</p>
-          </div>
-        </div>
-
-        <div className="receipt-p-2 text-right font-black">
-          <div className="space-y-1">
-            <p>{formatAmountPlain(admissionFee)}</p>
-            <p>{formatAmountPlain(paidFee)}</p>
-            <p>{formatAmountPlain(balanceFee)}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="receipt-p-1 border-b border-black font-black">
-        Rupees {numberToWords(paidFee)} Only
-      </div>
-
       <div className="grid grid-cols-2 text-[10px]">
         <div className="receipt-p-1">
           <p className="font-black">Note:</p>
-          <p>
-            Admission confirmation fee once paid will be recorded in school
-            accounts.
-          </p>
+          <p>This document confirms the student admission details.</p>
         </div>
 
         <div className="receipt-p-1 text-right">

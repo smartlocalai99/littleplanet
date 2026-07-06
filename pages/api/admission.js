@@ -426,7 +426,7 @@ export default async function handler(req, res) {
 
       const admission = admissionResult.rows[0];
 
-      const studentResult = await client.query(
+      await client.query(
         `
           INSERT INTO public.students (
             full_name,
@@ -440,8 +440,7 @@ export default async function handler(req, res) {
             medium,
             admission_id,
             student_unique_id
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-          RETURNING id;
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
         `,
         [
           cleanValue(body.student_name),
@@ -458,37 +457,6 @@ export default async function handler(req, res) {
         ]
       );
 
-      const student = studentResult.rows[0];
-
-      const feePaymentResult = await client.query(
-        `
-          INSERT INTO public.fee_payments (
-            admission_id,
-            student_id,
-            fee_type,
-            receipt_no,
-            payment_date,
-            amount_paid,
-            payment_mode,
-            reference_no,
-            collected_by,
-            remarks
-          ) VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6, $7, $8, $9)
-          RETURNING *;
-        `,
-        [
-          admission.id,
-          student.id,
-          "Admission Confirmation Fee",
-          `ADM-${admission.id}-${student.id}`,
-          2000,
-          cleanValue(body.admission_fee_mode) || "Cash",
-          null,
-          cleanValue(body.father_name) || cleanValue(body.student_name) || "Admission Desk",
-          "Initial admission payment",
-        ]
-      );
-
       await client.query("COMMIT");
 
       return res.status(200).json({
@@ -496,7 +464,6 @@ export default async function handler(req, res) {
         data: {
           ...admission,
           parent_id: parent.id,
-          fee_payment: feePaymentResult.rows[0],
         },
       });
     } catch (transactionError) {
