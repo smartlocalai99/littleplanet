@@ -318,7 +318,12 @@ export default function FeesPage() {
   const [phonePeLoading, setPhonePeLoading] = useState(false);
   const [phonePePayment, setPhonePePayment] = useState(null);
   const [copyLinkLabel, setCopyLinkLabel] = useState("Copy Link");
-  const [admissionSearch, setAdmissionSearch] = useState("");
+  const [studentQuery, setStudentQuery] = useState("");
+  const [studentSuggestions, setStudentSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const studentSearchRef = useRef(null);
+  const studentDebounceRef = useRef(null);
   const [whatsapp, setWhatsapp] = useState({
     phase: "idle", // idle | connecting | connected
     qrUrl: "",
@@ -378,40 +383,6 @@ export default function FeesPage() {
     [monthlySeries]
   );
 
-  const admissionOptions = useMemo(() => {
-    const seen = new Set();
-
-    return rows.filter((item) => {
-      if (!item.admission_id || seen.has(item.admission_id)) {
-        return false;
-      }
-
-      seen.add(item.admission_id);
-      return true;
-    });
-  }, [rows]);
-
-  const filteredAdmissionOptions = useMemo(() => {
-    const search = admissionSearch.trim().toLowerCase();
-
-    if (!search) {
-      return admissionOptions;
-    }
-
-    return admissionOptions.filter((item) =>
-      [
-        item.admission_id,
-        item.student_id,
-        item.student_name,
-        getClassName(item),
-        item.father_name,
-        item.father_mobile,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(search)
-    );
-  }, [admissionOptions, admissionSearch]);
 
   async function fetchWhatsappStatus() {
     const response = await fetch("/api/whatsapp/status");
@@ -518,6 +489,66 @@ export default function FeesPage() {
   }, [month, autoNotify, feesVersion]);
 
   useEffect(() => stopWhatsappConnect, []);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (studentSearchRef.current && !studentSearchRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function handleStudentQueryChange(e) {
+    const value = e.target.value;
+    setStudentQuery(value);
+    setShowSuggestions(true);
+
+    clearTimeout(studentDebounceRef.current);
+
+    if (!value.trim()) {
+      setStudentSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    studentDebounceRef.current = setTimeout(async () => {
+      setSuggestionLoading(true);
+      try {
+        const res = await fetch(`/api/students?q=${encodeURIComponent(value.trim())}`);
+        const data = await res.json();
+        setStudentSuggestions(data.students || []);
+        setShowSuggestions(true);
+      } catch {
+        setStudentSuggestions([]);
+      } finally {
+        setSuggestionLoading(false);
+      }
+    }, 280);
+  }
+
+  function selectStudentSuggestion(student) {
+    const className = formatClassName(student.class || "");
+    const mobile = student.father_mobile || student.mother_mobile || "";
+    setStudentQuery(student.full_name || "");
+    setShowSuggestions(false);
+    setStudentSuggestions([]);
+    setEntryError("");
+    setPhonePePayment(null);
+    setCopyLinkLabel("Copy Link");
+    setEntryForm((current) => ({
+      ...current,
+      admission_id: student.admission_id || "",
+      student_id: student.id || "",
+      student_name: student.full_name || "",
+      class_name: className,
+      parent_mobile: mobile,
+      amount_collected: current.amount_collected,
+      payment_mode: current.payment_mode === "PhonePe" ? "Cash" : current.payment_mode,
+      utr: current.payment_mode === "UPI" ? current.utr : "",
+    }));
+  }
 
   const filteredLedgerRows = useMemo(() => {
     const search = ledgerSearch.trim().toLowerCase();
@@ -694,9 +725,6 @@ export default function FeesPage() {
 
     setPhonePePayment(null);
     setCopyLinkLabel("Copy Link");
-    if (shouldClearStudentReference) {
-      setAdmissionSearch("");
-    }
     setEntryForm((current) => ({
       ...current,
       [name]: value,
@@ -707,37 +735,11 @@ export default function FeesPage() {
     }));
   }
 
-  function handleAdmissionRecordChange(event) {
-    const admissionId = event.target.value;
-    const selectedAdmission = admissionOptions.find(
-      (item) => String(item.admission_id) === admissionId
-    );
-
-    setPhonePePayment(null);
-    setCopyLinkLabel("Copy Link");
-    setEntryError("");
-
-    if (!selectedAdmission) {
-      setAdmissionSearch("");
-      setEntryForm((current) => ({
-        ...current,
-        admission_id: "",
-        student_id: "",
-        student_name: "",
-        class_name: "",
-        parent_mobile: "",
-      }));
-      return;
-    }
-
-    selectLedgerRowForCollection(selectedAdmission, { shouldScroll: false });
-  }
-
   function selectLedgerRowForCollection(item, options = {}) {
     setPhonePePayment(null);
     setCopyLinkLabel("Copy Link");
     setEntryError("");
-    setAdmissionSearch(item.student_name || String(item.admission_id || ""));
+    setStudentQuery(item.student_name || String(item.admission_id || ""));
     setEntryForm((current) => ({
       ...current,
       admission_id: item.admission_id || "",
@@ -863,7 +865,7 @@ export default function FeesPage() {
         payment_mode: "Cash",
         utr: "",
       });
-      setAdmissionSearch("");
+      setStudentQuery("");
 
       setEntryError(
         data.whatsappSent
@@ -1465,31 +1467,52 @@ export default function FeesPage() {
             onSubmit={saveFeeEntry}
             className="mt-6 grid gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-3"
           >
-            <input
-              value={admissionSearch}
-              onChange={(event) => setAdmissionSearch(event.target.value)}
-              placeholder="Search admission by student, admission no, class, mobile..."
-              aria-label="Search admission record"
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-900 md:col-span-2 xl:col-span-3"
-            />
-
-            <select
-              value={entryForm.admission_id}
-              onChange={handleAdmissionRecordChange}
-              aria-label="Admission record"
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-900 md:col-span-2 xl:col-span-3"
-            >
-              <option value="">Select admission record</option>
-              {filteredAdmissionOptions.map((item) => (
-                <option
-                  key={`${item.admission_id}-${item.student_id || "student"}`}
-                  value={item.admission_id}
-                >
-                  {item.student_name || "Student"} - Admission #
-                  {item.admission_id} - Class {getClassName(item) || "-"}
-                </option>
-              ))}
-            </select>
+            <div ref={studentSearchRef} className="relative md:col-span-2 xl:col-span-3">
+              <input
+                value={studentQuery}
+                onChange={handleStudentQueryChange}
+                onFocus={() => studentQuery.trim() && setShowSuggestions(true)}
+                placeholder="Type student name to search..."
+                autoComplete="off"
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-slate-900"
+              />
+              {entryForm.student_name && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStudentQuery("");
+                    setStudentSuggestions([]);
+                    setShowSuggestions(false);
+                    setEntryForm((c) => ({ ...c, admission_id: "", student_id: "", student_name: "", class_name: "", parent_mobile: "" }));
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-lg leading-none"
+                  aria-label="Clear student"
+                >×</button>
+              )}
+              {showSuggestions && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-lg">
+                  {suggestionLoading && (
+                    <p className="px-4 py-3 text-sm text-slate-400">Searching...</p>
+                  )}
+                  {!suggestionLoading && studentSuggestions.length === 0 && (
+                    <p className="px-4 py-3 text-sm text-slate-400">No students found</p>
+                  )}
+                  {!suggestionLoading && studentSuggestions.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); selectStudentSuggestion(s); }}
+                      className="flex w-full flex-col gap-0.5 px-4 py-3 text-left text-sm hover:bg-slate-50"
+                    >
+                      <span className="font-semibold text-slate-900">{s.full_name}</span>
+                      <span className="text-xs text-slate-500">
+                        Class {formatClassName(s.class || "")} · {s.father_mobile || s.mother_mobile || "No mobile"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <input
               name="date"

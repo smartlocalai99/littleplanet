@@ -109,7 +109,28 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
   try {
-    const result = await pool.query(
+    const { q } = req.query;
+    const search = String(q || "").trim();
+
+    let result;
+    if (search) {
+      result = await pool.query(
+        `SELECT s.id, s.full_name, s.class, s.admission_id,
+                a.father_name, a.father_mobile, a.mother_mobile
+         FROM public.students s
+         LEFT JOIN public.admissions a ON a.id = s.admission_id
+         WHERE s.full_name ILIKE $1
+            OR a.father_name ILIKE $1
+            OR a.father_mobile ILIKE $1
+            OR a.student_name ILIKE $1
+         ORDER BY s.full_name ASC
+         LIMIT 20`,
+        [`%${search}%`]
+      );
+      return res.status(200).json({ success: true, students: result.rows });
+    }
+
+    result = await pool.query(
       `SELECT id, full_name, gender, date_of_birth, age, class, blood_group, nationality, religion, medium, admission_id, student_unique_id, created_at FROM students ORDER BY id DESC`
     );
     res.status(200).json({ success: true, students: result.rows });
