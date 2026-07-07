@@ -791,11 +791,6 @@ export default function FeesPage() {
       return;
     }
 
-    if (entryForm.payment_mode === "PhonePe") {
-      setEntryError("Use Generate PhonePe Link for PhonePe payments.");
-      return;
-    }
-
     if (entryForm.payment_mode === "UPI" && !entryForm.utr) {
       setEntryError("Please enter the UTR / transaction ID for UPI payments.");
       return;
@@ -1575,7 +1570,6 @@ export default function FeesPage() {
             >
               <option>Cash</option>
               <option>UPI</option>
-              <option>PhonePe</option>
             </select>
 
             {/* Receipt upload for Cash removed */}
@@ -1591,89 +1585,15 @@ export default function FeesPage() {
               />
             )}
 
-            {entryForm.payment_mode === "PhonePe" ? (
-              <button
-                type="button"
-                onClick={generatePhonePeLink}
-                disabled={phonePeLoading}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 xl:col-span-3"
-              >
-                {phonePeLoading
-                  ? "Generating PhonePe Link..."
-                  : "Generate PhonePe Link"}
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={savingFee}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 xl:col-span-3"
-              >
-                <FaPlus /> {savingFee ? "Saving fee..." : "Save fee collection"}
-              </button>
-            )}
+            <button
+              type="submit"
+              disabled={savingFee}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 xl:col-span-3"
+            >
+              <FaPlus /> {savingFee ? "Saving fee..." : "Save fee collection"}
+            </button>
           </form>
 
-          {phonePePayment && (
-            <div className="mt-6 overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 shadow-sm">
-              <div className="border-b border-violet-100 px-6 py-5">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-violet-600">
-                  PhonePe Link Generated
-                </p>
-                <h3 className="mt-2 text-xl font-black text-slate-900">
-                  Share this secure payment link
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  This fee remains unpaid until PhonePe confirms a completed
-                  payment.
-                </p>
-              </div>
-
-              <div className="grid gap-4 p-6 md:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                    Merchant Order ID
-                  </p>
-                  <p className="mt-2 break-all text-sm font-bold text-slate-800">
-                    {phonePePayment.merchantOrderId}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                    Checkout URL
-                  </p>
-                  <p className="mt-2 break-all text-sm font-semibold text-violet-700">
-                    {phonePePayment.checkoutUrl}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 px-6 pb-6 sm:flex-row">
-                <a
-                  href={phonePePayment.checkoutUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex flex-1 items-center justify-center rounded-2xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-500"
-                >
-                  Open Link
-                </a>
-                <button
-                  type="button"
-                  onClick={copyPhonePeLink}
-                  className="flex flex-1 items-center justify-center rounded-2xl border border-violet-200 bg-white px-5 py-3 text-sm font-bold text-violet-700 transition hover:bg-violet-50"
-                >
-                  {copyLinkLabel}
-                </button>
-                <button
-                  type="button"
-                  onClick={sharePhonePeLinkOnWhatsApp}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-green-500"
-                >
-                  <WhatsAppIcon />
-                  Share on WhatsApp
-                </button>
-              </div>
-            </div>
-          )}
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {entries.slice(0, 3).map((entry) => (
