@@ -3,6 +3,7 @@ import { FaFileExcel, FaPlus, FaReceipt, FaSyncAlt, FaTrash } from "react-icons/
 import Swal from "sweetalert2";
 import { withAuthPage } from "@/lib/withAuthPage";
 import { downloadExcel } from "@/lib/exportToExcel";
+import AdmissionModal from "@/components/AdmissionModal";
 
 export const getServerSideProps = withAuthPage({ path: "/fees" });
 
@@ -308,9 +309,8 @@ export default function FeesPage() {
   });
 
   const [loading, setLoading] = useState(false);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [autoNotify, setAutoNotify] = useState(true);
   const [entryError, setEntryError] = useState("");
+  const [selectedLedgerAdmissionId, setSelectedLedgerAdmissionId] = useState(null);
   const [savingFee, setSavingFee] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState(null);
   const [feeReceiptOpen, setFeeReceiptOpen] = useState(false);
@@ -460,20 +460,6 @@ export default function FeesPage() {
         setMetrics(data.metrics || {});
         setMonthly(data.monthly || []);
         setLedgerPage(1);
-
-        if (autoNotify) {
-          setSelectedIds(
-            (data.records || [])
-              .filter(
-                (item) =>
-                  Number(item.balance_amount || 0) > 0 &&
-                  normalizePhoneNumber(item.father_mobile)
-              )
-              .map((item) => item.admission_id)
-          );
-        } else {
-          setSelectedIds([]);
-        }
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -486,7 +472,7 @@ export default function FeesPage() {
     return () => {
       isMounted = false;
     };
-  }, [month, autoNotify, feesVersion]);
+  }, [month, feesVersion]);
 
   useEffect(() => stopWhatsappConnect, []);
 
@@ -604,16 +590,6 @@ export default function FeesPage() {
     ledgerDueOnly,
   ]);
 
-  const dueRows = useMemo(
-    () =>
-      filteredLedgerRows.filter(
-        (item) =>
-          Number(item.balance_amount || 0) > 0 &&
-          normalizePhoneNumber(item.father_mobile)
-      ),
-    [filteredLedgerRows]
-  );
-
   const ledgerTotalPages = Math.max(
     1,
     Math.ceil(filteredLedgerRows.length / ledgerPageSize)
@@ -630,28 +606,6 @@ export default function FeesPage() {
     [filteredLedgerRows, activeLedgerPage]
   );
 
-  const selectedRows = useMemo(
-    () =>
-      filteredLedgerRows.filter(
-        (item) =>
-          selectedIds.includes(item.admission_id) &&
-          normalizePhoneNumber(item.father_mobile)
-      ),
-    [filteredLedgerRows, selectedIds]
-  );
-
-  const allSelectableIds = useMemo(
-    () => dueRows.map((item) => item.admission_id),
-    [dueRows]
-  );
-
-  const isAllSelected =
-    allSelectableIds.length > 0 &&
-    allSelectableIds.every((id) => selectedIds.includes(id));
-
-  const isIndeterminate =
-    allSelectableIds.some((id) => selectedIds.includes(id)) && !isAllSelected;
-
   function resetLedgerFilters() {
     setLedgerSearch("");
     setLedgerClass("All");
@@ -659,28 +613,6 @@ export default function FeesPage() {
     setLedgerPaymentMode("All");
     setLedgerDueOnly(false);
     setLedgerPage(1);
-  }
-
-  function toggleAllSelection() {
-    setSelectedIds((current) => {
-      if (isAllSelected) {
-        return current.filter((id) => !allSelectableIds.includes(id));
-      }
-
-      return Array.from(new Set([...current, ...allSelectableIds]));
-    });
-  }
-
-  function toggleRowSelection(item) {
-    if (!normalizePhoneNumber(item.father_mobile)) {
-      return;
-    }
-
-    setSelectedIds((current) =>
-      current.includes(item.admission_id)
-        ? current.filter((id) => id !== item.admission_id)
-        : [...current, item.admission_id]
-    );
   }
 
   function buildWhatsAppMessage(item) {
@@ -707,12 +639,6 @@ export default function FeesPage() {
       "_blank",
       "noopener,noreferrer"
     );
-  }
-
-  function openBulkWhatsApp() {
-    selectedRows.forEach((item) => {
-      openWhatsApp(item);
-    });
   }
 
   function handleEntryChange(event) {
@@ -893,19 +819,6 @@ export default function FeesPage() {
           void printFeeReceiptOnly();
         }, 700);
 
-        if (autoNotify) {
-          setSelectedIds(
-            (feesData.records || [])
-              .filter(
-                (item) =>
-                  Number(item.balance_amount || 0) > 0 &&
-                  normalizePhoneNumber(item.father_mobile)
-              )
-              .map((item) => item.admission_id)
-          );
-        } else {
-          setSelectedIds([]);
-        }
       }
     } catch (requestError) {
       setEntryError(requestError.message || "Unable to save fee collection");
@@ -963,9 +876,6 @@ export default function FeesPage() {
       });
       setEntries((current) =>
         current.filter((entry) => entry.receipt_no !== item.latest_receipt_no)
-      );
-      setSelectedIds((current) =>
-        current.filter((id) => id !== item.admission_id)
       );
       setFeesVersion((current) => current + 1);
     } catch (requestError) {
@@ -1304,16 +1214,6 @@ export default function FeesPage() {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <label className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={autoNotify}
-                  onChange={(e) => setAutoNotify(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
-                />
-                Auto notify due parents
-              </label>
-
               <input
                 type="month"
                 value={month}
@@ -1324,34 +1224,16 @@ export default function FeesPage() {
           </div>
         </div>
 
-        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">Total Fees</p>
-            <h2 className="mt-3 text-3xl font-bold text-slate-900">
-              {formatCurrency(metrics.totalFees)}
-            </h2>
-          </div>
-
-          <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">
-              Total Collected
-            </p>
+            <p className="text-sm font-medium text-slate-500">Total Collected</p>
             <h2 className="mt-3 text-3xl font-bold text-green-700">
               {formatCurrency(metrics.totalCollected)}
             </h2>
           </div>
 
           <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">Pending Fees</p>
-            <h2 className="mt-3 text-3xl font-bold text-red-700">
-              {formatCurrency(metrics.pendingFees)}
-            </h2>
-          </div>
-
-          <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">
-              Today&apos;s Collection
-            </p>
+            <p className="text-sm font-medium text-slate-500">Today&apos;s Collection</p>
             <h2 className="mt-3 text-3xl font-bold text-blue-700">
               {formatCurrency(metrics.todayCollection)}
             </h2>
@@ -1705,31 +1587,6 @@ export default function FeesPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <label className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={isAllSelected}
-                    ref={(node) => {
-                      if (node) {
-                        node.indeterminate = isIndeterminate;
-                      }
-                    }}
-                    onChange={toggleAllSelection}
-                    className="h-4 w-4 rounded border-slate-300 text-green-600"
-                  />
-                  Select all due parents
-                </label>
-
-                <button
-                  type="button"
-                  onClick={openBulkWhatsApp}
-                  disabled={selectedRows.length === 0}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <WhatsAppIcon />
-                  Notify selected parents ({selectedRows.length})
-                </button>
-
                 <button
                   type="button"
                   onClick={exportLedgerToExcel}
@@ -1829,13 +1686,11 @@ export default function FeesPage() {
               <thead style={{ backgroundColor: "#08516d" }}>
                 <tr>
                   {[
-                    "Select",
                     "Student",
                     "Class",
                     "Parent",
-                    "Total Fee",
                     "Paid",
-                    "Balance",
+                    "Last Payment",
                     "Status",
                     "Action",
                   ].map((h) => (
@@ -1862,17 +1717,10 @@ export default function FeesPage() {
                       }`}
                       className="hover:bg-slate-50"
                     >
-                      <td className="px-5 py-4 align-top">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(item.admission_id)}
-                          onChange={() => toggleRowSelection(item)}
-                          disabled={!hasPhone}
-                          className="h-4 w-4 rounded border-slate-300 text-green-600 disabled:cursor-not-allowed disabled:opacity-40"
-                        />
-                      </td>
-
-                      <td className="px-5 py-4">
+                      <td
+                        className="cursor-pointer px-5 py-4"
+                        onClick={() => item.admission_id && setSelectedLedgerAdmissionId(item.admission_id)}
+                      >
                         <p className="font-semibold text-slate-900">
                           {item.student_name}
                         </p>
@@ -1881,11 +1729,17 @@ export default function FeesPage() {
                         </p>
                       </td>
 
-                      <td className="px-5 py-4 text-sm text-slate-700">
+                      <td
+                        className="cursor-pointer px-5 py-4 text-sm text-slate-700"
+                        onClick={() => item.admission_id && setSelectedLedgerAdmissionId(item.admission_id)}
+                      >
                         {getClassName(item) || "-"}
                       </td>
 
-                      <td className="px-5 py-4">
+                      <td
+                        className="cursor-pointer px-5 py-4"
+                        onClick={() => item.admission_id && setSelectedLedgerAdmissionId(item.admission_id)}
+                      >
                         <p className="text-sm font-semibold text-slate-900">
                           {item.father_name || "-"}
                         </p>
@@ -1894,16 +1748,14 @@ export default function FeesPage() {
                         </p>
                       </td>
 
-                      <td className="px-5 py-4 text-sm font-bold text-slate-900">
-                        {formatCurrency(item.total_fee)}
-                      </td>
-
                       <td className="px-5 py-4 text-sm font-bold text-green-700">
                         {formatCurrency(item.paid_amount)}
                       </td>
 
-                      <td className="px-5 py-4 text-sm font-bold text-red-700">
-                        {formatCurrency(item.balance_amount)}
+                      <td className="px-5 py-4 text-sm text-slate-700">
+                        {item.latest_payment_date
+                          ? new Date(item.latest_payment_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                          : "-"}
                       </td>
 
                       <td className="px-5 py-4">
@@ -1985,6 +1837,13 @@ export default function FeesPage() {
         data={feeReceiptData}
         onClose={closeFeeReceipt}
         onPrint={printFeeReceiptOnly}
+      />
+    ) : null}
+
+    {selectedLedgerAdmissionId ? (
+      <AdmissionModal
+        admissionId={selectedLedgerAdmissionId}
+        onClose={() => setSelectedLedgerAdmissionId(null)}
       />
     ) : null}
     </>
@@ -2193,17 +2052,13 @@ function FeeReceiptCopy({ data, copyLabel }) {
       <div className="grid grid-cols-[1fr_95px] border-b border-black">
         <div className="receipt-p-2 border-r border-black">
           <div className="space-y-1 pl-8 font-black">
-            <p>Total Fee</p>
             <p>Total Paid</p>
-            <p>Balance Fee</p>
           </div>
         </div>
 
         <div className="receipt-p-2 text-right font-black">
           <div className="space-y-1">
-            <p>{formatAmountPlain(totalFee)}</p>
             <p>{formatAmountPlain(totalPaid)}</p>
-            <p>{formatAmountPlain(balanceAmount)}</p>
           </div>
         </div>
       </div>

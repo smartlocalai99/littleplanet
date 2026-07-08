@@ -464,12 +464,25 @@ export default function AdmissionForm({ embedded = false }) {
             </Section>
 
             <Section title="Academic Details">
-              <Input
+              <Select
                 label="Class Applying For"
                 name="class_applying"
                 onChange={handleChange}
                 value={form.class_applying || ""}
-              />
+              >
+                <option value="">Select Class</option>
+                <option value="Nursery">Nursery</option>
+                <option value="LKG">LKG</option>
+                <option value="UKG">UKG</option>
+                <option value="1st">1st</option>
+                <option value="2nd">2nd</option>
+                <option value="3rd">3rd</option>
+                <option value="4th">4th</option>
+                <option value="5th">5th</option>
+                <option value="6th">6th</option>
+                <option value="7th">7th</option>
+                <option value="8th">8th</option>
+              </Select>
 
               <Input
                 label="Previous School"
@@ -478,12 +491,25 @@ export default function AdmissionForm({ embedded = false }) {
                 value={form.previous_school || ""}
               />
 
-              <Input
+              <Select
                 label="Previous Class"
                 name="previous_class"
                 onChange={handleChange}
                 value={form.previous_class || ""}
-              />
+              >
+                <option value="">Select Class</option>
+                <option value="Nursery">Nursery</option>
+                <option value="LKG">LKG</option>
+                <option value="UKG">UKG</option>
+                <option value="1st">1st</option>
+                <option value="2nd">2nd</option>
+                <option value="3rd">3rd</option>
+                <option value="4th">4th</option>
+                <option value="5th">5th</option>
+                <option value="6th">6th</option>
+                <option value="7th">7th</option>
+                <option value="8th">8th</option>
+              </Select>
 
               <Select
                 label="Transfer Certificate"
