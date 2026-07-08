@@ -32,8 +32,8 @@ export default function AdmissionForm({ embedded = false }) {
   const [isSaved, setIsSaved] = useState(false);
 
   const feesAmount = Number(form.fees) || 0;
-  const discountPercent = Math.min(Math.max(Number(form.discount) || 0, 0), 100);
-  const discountAmount = Math.round((feesAmount * discountPercent) / 100);
+  const enteredDiscountAmount = Math.max(Number(form.discount) || 0, 0);
+  const discountAmount = Math.min(enteredDiscountAmount, feesAmount);
   const finalFeeAmount = feesAmount - discountAmount;
 
   const formatCurrency = (value) => {
@@ -306,7 +306,7 @@ export default function AdmissionForm({ embedded = false }) {
       class_applying: formatClassName(form.class_applying),
       previous_class: formatClassName(form.previous_class),
       fees: feesAmount,
-      discount: discountPercent,
+      discount: discountAmount,
       final_fee: finalFeeAmount,
     };
 
@@ -565,13 +565,12 @@ export default function AdmissionForm({ embedded = false }) {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Discount (%)</label>
+                <label className="text-sm font-medium">Discount Amount (₹)</label>
                 <input
                   type="number"
                   name="discount"
                   min="0"
-                  max="100"
-                  placeholder="Enter discount percentage"
+                  placeholder="Enter discount amount"
                   onChange={handleChange}
                   value={form.discount || ""}
                   className="mt-1 w-full rounded-lg border p-2 outline-none focus:ring-2 focus:ring-black"
@@ -587,7 +586,7 @@ export default function AdmissionForm({ embedded = false }) {
                   <p className="mt-1 text-xl font-black text-slate-900">{formatCurrency(feesAmount)}</p>
                 </div>
                 <div className="border-r border-slate-200 bg-amber-50 p-4 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Discount ({discountPercent}%)</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Discount Amount</p>
                   <p className="mt-1 text-xl font-black text-amber-700">− {formatCurrency(discountAmount)}</p>
                 </div>
                 <div className="bg-emerald-50 p-4 text-center">

@@ -24,11 +24,11 @@ export default function AdmissionModal({ admissionId, onClose }) {
     if (!admissionId) return;
 
     let active = true;
-    setLoading(true);
-    setError("");
-
     (async () => {
       try {
+        setLoading(true);
+        setError("");
+
         const res = await fetch(`/api/admission/${admissionId}`);
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.error || "Unable to load admission details");
@@ -94,8 +94,8 @@ export default function AdmissionModal({ admissionId, onClose }) {
                     <p className="mt-3 text-xs text-slate-500">Total School Fees</p>
                     <p className="font-medium text-slate-800">{formatCurrency(admission.fees)}</p>
 
-                    <p className="mt-3 text-xs text-slate-500">Discount</p>
-                    <p className="font-medium text-amber-700">{admission.discount ? `${admission.discount}%` : "—"}</p>
+                    <p className="mt-3 text-xs text-slate-500">Discount Amount</p>
+                    <p className="font-medium text-amber-700">{Number(admission.discount) > 0 ? formatCurrency(admission.discount) : "—"}</p>
 
                     <p className="mt-3 text-xs text-slate-500">Net School Fee</p>
                     <p className="font-medium text-emerald-700">{formatCurrency(admission.final_fee)}</p>
