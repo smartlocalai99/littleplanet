@@ -290,6 +290,10 @@ export default function StaffPage() {
   const [form, setForm] = useState(emptyForm);
   const [selectedId, setSelectedId] = useState(null);
   const [message, setMessage] = useState("");
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [syncStaff, setSyncStaff] = useState([]);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   async function fetchStaff() {
     try {
@@ -408,6 +412,50 @@ export default function StaffPage() {
     }
   }
 
+  async function openSync() {
+    setSyncOpen(true);
+    setSyncLoading(true);
+    try {
+      const res = await fetch("/api/staff/sync");
+      const data = await res.json();
+      if (data.success) setSyncStaff(data.staff || []);
+      else setMessage(data.error || "Failed to fetch attendance staff");
+    } catch (e) {
+      setMessage(e.message);
+    } finally {
+      setSyncLoading(false);
+    }
+  }
+
+  async function importAllAttendanceStaff() {
+    const unsynced = syncStaff.filter((s) => !s.already_synced);
+    if (unsynced.length === 0) {
+      setMessage("All staff are already synced.");
+      setSyncOpen(false);
+      return;
+    }
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/staff/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: unsynced.map((s) => s.id) }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage(`Imported ${data.created} staff, ${data.skipped} already existed.`);
+        setSyncOpen(false);
+        fetchStaff();
+      } else {
+        setMessage(data.error || "Import failed");
+      }
+    } catch (e) {
+      setMessage(e.message);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   const totalStaff = staff.length;
   const teachingStaff = staff.filter((item) => item.staff_type === "Teaching").length;
   const nonTeachingStaff = staff.filter((item) => item.staff_type === "Non-Teaching").length;
@@ -425,9 +473,14 @@ export default function StaffPage() {
               </p>
             </div>
 
-            <button onClick={openAdd} className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700">
-              + Add Staff
-            </button>
+            <div className="flex gap-3">
+              <button onClick={openSync} className="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+                ⬇ Sync from Attendance
+              </button>
+              <button onClick={openAdd} className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700">
+                + Add Staff
+              </button>
+            </div>
           </div>
         </div>
 
@@ -549,6 +602,66 @@ export default function StaffPage() {
         onSubmit={saveStaff}
         submitting={submitting}
       />
+
+      {syncOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Sync from Attendance DB</h2>
+                <p className="mt-1 text-xs text-slate-500">Staff found in the attendance system</p>
+              </div>
+              <button onClick={() => setSyncOpen(false)} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700">Close</button>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto px-6 py-4">
+              {syncLoading ? (
+                <p className="py-8 text-center text-sm text-slate-500">Loading attendance staff...</p>
+              ) : syncStaff.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-500">No staff found in attendance DB.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-slate-500">
+                      <th className="py-2">ID</th>
+                      <th className="py-2">Name</th>
+                      <th className="py-2">Subject</th>
+                      <th className="py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {syncStaff.map((s) => (
+                      <tr key={s.id} className="border-b">
+                        <td className="py-2 text-slate-500">{s.teacher_id}</td>
+                        <td className="py-2 font-semibold text-slate-900">{s.full_name}</td>
+                        <td className="py-2 text-slate-600">{s.subject || "-"}</td>
+                        <td className="py-2">
+                          {s.already_synced ? (
+                            <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">Synced</span>
+                          ) : (
+                            <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">Not synced</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 border-t px-6 py-4">
+              <button onClick={() => setSyncOpen(false)} className="rounded-xl border px-5 py-2 text-sm font-bold text-slate-700">Cancel</button>
+              <button
+                onClick={importAllAttendanceStaff}
+                disabled={syncing || syncLoading}
+                className="rounded-xl bg-slate-900 px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {syncing ? "Importing..." : `Import All (${syncStaff.filter((s) => !s.already_synced).length} new)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

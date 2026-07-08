@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import { createPoolOptions } from "@/lib/postgresConfig";
+import { getAttendancePool } from "@/lib/attendanceDb";
 
 const pool =
   global.pgPool ||
@@ -184,9 +185,38 @@ export default async function handler(req, res) {
         ]
       );
 
+      const newStaff = result.rows[0];
+
+      // Mirror to attendance DB (non-fatal if it fails)
+      try {
+        const attendancePool = getAttendancePool();
+        if (attendancePool) {
+          // Ensure school DB has attendance_staff_id column
+          await pool.query(`ALTER TABLE public.staff ADD COLUMN IF NOT EXISTS attendance_staff_id UUID`);
+
+          const teacherId = newStaff.staff_code || `T-${newStaff.id}`;
+          const attResult = await attendancePool.query(
+            `INSERT INTO staff (teacher_id, full_name, subject, salary, is_active)
+             VALUES ($1, $2, $3, $4, true)
+             ON CONFLICT (teacher_id) DO UPDATE SET full_name = EXCLUDED.full_name, salary = EXCLUDED.salary
+             RETURNING id`,
+            [teacherId, full_name, subject || "Other", monthly_salary || 0]
+          );
+          if (attResult.rows[0]?.id) {
+            await pool.query(
+              `UPDATE public.staff SET attendance_staff_id = $1 WHERE id = $2`,
+              [attResult.rows[0].id, newStaff.id]
+            );
+            newStaff.attendance_staff_id = attResult.rows[0].id;
+          }
+        }
+      } catch (syncErr) {
+        console.error("Attendance DB mirror failed (non-fatal):", syncErr.message);
+      }
+
       return res.status(201).json({
         success: true,
-        staff: result.rows[0],
+        staff: newStaff,
       });
     }
 
