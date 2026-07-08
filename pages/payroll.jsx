@@ -250,11 +250,6 @@ export default function PayrollPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [uploadingAttendance, setUploadingAttendance] = useState(false);
-  const [attendanceFile, setAttendanceFile] = useState(null);
-  const [attendanceMonth, setAttendanceMonth] = useState(emptyForm.payroll_month);
-  const [attendanceYear, setAttendanceYear] = useState(emptyForm.payroll_year);
-  const [attendanceSummary, setAttendanceSummary] = useState(null);
   const [message, setMessage] = useState("");
   const [filterMonthYear, setFilterMonthYear] = useState(`${emptyForm.payroll_month} ${emptyForm.payroll_year}`);
 
@@ -336,51 +331,6 @@ export default function PayrollPage() {
       setMessage(err.message);
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function uploadAttendance() {
-    try {
-      if (!attendanceFile) {
-        setMessage("Please select biometric attendance file");
-        return;
-      }
-
-      setUploadingAttendance(true);
-      setMessage("");
-      setAttendanceSummary(null);
-
-      const formData = new FormData();
-      formData.append("payroll_month", attendanceMonth);
-      formData.append("payroll_year", String(attendanceYear));
-      formData.append("attendance", attendanceFile);
-
-      const res = await fetch("/api/payroll/attendance-upload", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-
-      if (!data.success) {
-        throw new Error(data.error || "Failed to upload attendance");
-      }
-
-      setAttendanceSummary(data.summary);
-      setFilterMonthYear(`${attendanceMonth} ${attendanceYear}`);
-      setForm((p) => ({
-        ...p,
-        payroll_month: attendanceMonth,
-        payroll_year: Number(attendanceYear),
-      }));
-      setAttendanceFile(null);
-      setMessage(
-        `Attendance imported: ${data.summary.rowsImported} staff, ${data.summary.createdPayroll} new payroll, ${data.summary.updatedPayroll} updated.`
-      );
-      fetchData();
-    } catch (error) {
-      setMessage(error.message || "Failed to upload attendance");
-    } finally {
-      setUploadingAttendance(false);
     }
   }
 
@@ -544,84 +494,6 @@ export default function PayrollPage() {
         </div>
 
         <div className="overflow-hidden rounded-[1.75rem] bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-6 py-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Biometric Attendance Upload</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Upload the monthly biometric report to calculate payroll from attendance.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[120px_110px_minmax(220px,1fr)_auto] lg:min-w-[760px]">
-                <label>
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-500">Month</span>
-                  <select
-                    value={attendanceMonth}
-                    onChange={(e) => setAttendanceMonth(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold outline-none focus:border-slate-900"
-                  >
-                    {MONTHS.map((month) => (
-                      <option key={month} value={month}>
-                        {month}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-500">Year</span>
-                  <input
-                    type="number"
-                    value={attendanceYear}
-                    onChange={(e) => setAttendanceYear(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold outline-none focus:border-slate-900"
-                  />
-                </label>
-
-                <label>
-                  <span className="mb-1 block text-xs font-bold uppercase text-slate-500">File</span>
-                  <input
-                    type="file"
-                    accept=".xls,.xlsx"
-                    onChange={(e) => setAttendanceFile(e.target.files?.[0] || null)}
-                    className="block w-full rounded-xl border border-slate-200 text-sm text-slate-600 file:mr-4 file:border-0 file:bg-slate-100 file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200"
-                  />
-                </label>
-
-                <button
-                  type="button"
-                  onClick={uploadAttendance}
-                  disabled={uploadingAttendance}
-                  className="rounded-xl bg-slate-900 px-5 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:self-end"
-                >
-                  {uploadingAttendance ? "Importing..." : "Import"}
-                </button>
-              </div>
-            </div>
-
-            {attendanceSummary && (
-              <div className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-slate-500">Rows Imported</p>
-                  <p className="mt-1 font-black text-slate-900">{attendanceSummary.rowsImported}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-slate-500">Staff Added</p>
-                  <p className="mt-1 font-black text-slate-900">{attendanceSummary.createdStaff}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-slate-500">Payroll Created</p>
-                  <p className="mt-1 font-black text-slate-900">{attendanceSummary.createdPayroll}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-slate-500">Payroll Updated</p>
-                  <p className="mt-1 font-black text-slate-900">{attendanceSummary.updatedPayroll}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
           <div className="border-b border-slate-200 px-6 py-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <h2 className="text-lg font-bold text-slate-900">Payroll Register</h2>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
