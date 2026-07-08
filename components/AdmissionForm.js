@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Swal from "sweetalert2";
+import { getAdmissionFeeDefault } from "../lib/admissionFeeDefaults";
 
 const SCHOOL_NAME = "Little Planet";
 const SCHOOL_ADDRESS = "Prakash Nagar, Kadapa, Andhra Pradesh";
@@ -36,14 +37,6 @@ export default function AdmissionForm({ embedded = false }) {
   const discountAmount = Math.min(enteredDiscountAmount, feesAmount);
   const finalFeeAmount = feesAmount - discountAmount;
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(Number(value) || 0);
-  };
-
   const formatDate = (value) => {
     const date = value ? new Date(value) : new Date();
 
@@ -64,6 +57,9 @@ export default function AdmissionForm({ embedded = false }) {
     setForm((previous) => ({
       ...previous,
       [name]: value,
+      ...(name === "class_applying" && getAdmissionFeeDefault(value)
+        ? { fees: String(getAdmissionFeeDefault(value).totalFees) }
+        : {}),
     }));
   };
 
@@ -577,24 +573,19 @@ export default function AdmissionForm({ embedded = false }) {
                 />
               </div>
 
+              <div>
+                <label className="text-sm font-medium">Final Amount (₹)</label>
+                <input
+                  type="number"
+                  name="final_fee"
+                  readOnly
+                  value={finalFeeAmount || ""}
+                  className="mt-1 w-full rounded-lg border bg-slate-100 p-2 font-semibold text-slate-900 outline-none"
+                />
+              </div>
+
             </div>
 
-            {feesAmount > 0 && (
-              <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-xl border border-slate-200">
-                <div className="border-r border-slate-200 p-4 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total School Fees</p>
-                  <p className="mt-1 text-xl font-black text-slate-900">{formatCurrency(feesAmount)}</p>
-                </div>
-                <div className="border-r border-slate-200 bg-amber-50 p-4 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Discount Amount</p>
-                  <p className="mt-1 text-xl font-black text-amber-700">− {formatCurrency(discountAmount)}</p>
-                </div>
-                <div className="bg-emerald-50 p-4 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Net School Fee</p>
-                  <p className="mt-1 text-xl font-black text-emerald-700">{formatCurrency(finalFeeAmount)}</p>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">

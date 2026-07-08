@@ -3,13 +3,6 @@ import { createPoolOptions } from "@/lib/postgresConfig";
 
 const pool = new Pool(createPoolOptions());
 
-async function ensureAdmissionsUtrColumn(client) {
-  await client.query(`
-    ALTER TABLE public.admissions
-    ADD COLUMN IF NOT EXISTS utr VARCHAR(100)
-  `);
-}
-
 async function ensureFeePaymentsTable(client) {
   await client.query(`
     CREATE TABLE IF NOT EXISTS public.fee_payments (
@@ -84,8 +77,7 @@ export default async function handler(req, res) {
           admission_fee_mode,
           fees,
           discount,
-          final_fee,
-          utr
+          final_fee
         FROM public.admissions
         ORDER BY created_at DESC, id DESC
         `
@@ -199,9 +191,8 @@ export default async function handler(req, res) {
                 admission_fee_mode = $17,
                 fees = $18,
                 discount = $19,
-                final_fee = $20,
-                utr = $21
-            WHERE id = $22
+                final_fee = $20
+            WHERE id = $21
             RETURNING *
           `,
           [
@@ -225,7 +216,6 @@ export default async function handler(req, res) {
             body.fees != null ? Number(body.fees) : null,
             body.discount != null ? Number(body.discount) : null,
             body.final_fee != null ? Number(body.final_fee) : null,
-            cleanValue(body.utr),
             admissionId,
           ]
         );
@@ -315,7 +305,6 @@ export default async function handler(req, res) {
 
     try {
       await client.query("BEGIN");
-      await ensureAdmissionsUtrColumn(client);
       await ensureFeePaymentsTable(client);
 
       const parentResult = await client.query(
@@ -384,8 +373,7 @@ export default async function handler(req, res) {
             parent_id,
             fees,
             discount,
-            final_fee,
-            utr
+            final_fee
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8,
 
@@ -401,7 +389,7 @@ export default async function handler(req, res) {
 
             $28, $29, $30, $31, $32, $33, $34, $35,
 
-            $36, $37, $38, $39
+            $36, $37, $38
           )
           RETURNING *;
         `,
@@ -450,7 +438,6 @@ export default async function handler(req, res) {
           body.fees != null ? Number(body.fees) : null,
           body.discount != null ? Number(body.discount) : null,
           body.final_fee != null ? Number(body.final_fee) : null,
-          cleanValue(body.utr),
         ]
       );
 
