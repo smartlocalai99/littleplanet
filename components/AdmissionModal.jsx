@@ -91,10 +91,13 @@ export default function AdmissionModal({ admissionId, onClose }) {
 
                     <p className="font-semibold text-slate-900">{admission.father_mobile || admission.emergency_contact || "-"}</p>
 
-                    <p className="mt-3 text-xs text-slate-500">Fees</p>
-                    <p className="font-medium text-slate-800">{formatCurrency(admission.fees || admission.total_fee)}</p>
+                    <p className="mt-3 text-xs text-slate-500">Total School Fees</p>
+                    <p className="font-medium text-slate-800">{formatCurrency(admission.fees)}</p>
 
-                    <p className="mt-3 text-xs text-slate-500">Final fee</p>
+                    <p className="mt-3 text-xs text-slate-500">Discount</p>
+                    <p className="font-medium text-amber-700">{admission.discount ? `${admission.discount}%` : "—"}</p>
+
+                    <p className="mt-3 text-xs text-slate-500">Net School Fee</p>
                     <p className="font-medium text-emerald-700">{formatCurrency(admission.final_fee)}</p>
                   </div>
 

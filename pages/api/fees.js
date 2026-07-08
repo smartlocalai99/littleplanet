@@ -66,8 +66,8 @@ export default async function handler(req, res) {
         a.father_mobile,
         a.created_at,
         COALESCE(SUM(fp.amount_paid), 0)::numeric AS paid_amount,
-        0::numeric AS total_fee,
-        0::numeric AS balance_amount,
+        COALESCE(a.final_fee, a.fees, 0)::numeric AS total_fee,
+        GREATEST(COALESCE(a.final_fee, a.fees, 0) - COALESCE(SUM(fp.amount_paid), 0), 0)::numeric AS balance_amount,
         COALESCE(latest_fp.payment_mode, a.admission_fee_mode, 'Cash') AS payment_mode,
         latest_fp.id AS latest_payment_id,
         latest_fp.amount_paid AS latest_paid_amount,
@@ -76,7 +76,9 @@ export default async function handler(req, res) {
         latest_fp.receipt_no AS latest_receipt_no,
         CASE
           WHEN COALESCE(SUM(fp.amount_paid), 0) = 0 THEN 'Pending'
-          ELSE 'Paid'
+          WHEN COALESCE(SUM(fp.amount_paid), 0) >= COALESCE(a.final_fee, a.fees, 0) AND COALESCE(a.final_fee, a.fees, 0) > 0 THEN 'Paid'
+          WHEN COALESCE(SUM(fp.amount_paid), 0) > 0 THEN 'Partial'
+          ELSE 'Pending'
         END AS payment_status
       FROM public.admissions a
       LEFT JOIN LATERAL (
@@ -102,7 +104,7 @@ export default async function handler(req, res) {
     const metricsResult = await pool.query(
       `
       SELECT
-        0::numeric AS total_fees,
+        COALESCE((SELECT SUM(COALESCE(final_fee, fees, 0)) FROM public.admissions), 0)::numeric AS total_fees,
 
         COALESCE((
           SELECT SUM(amount_paid)

@@ -31,6 +31,11 @@ export default function AdmissionForm({ embedded = false }) {
   const [savedAdmission, setSavedAdmission] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
 
+  const feesAmount = Number(form.fees) || 0;
+  const discountPercent = Math.min(Math.max(Number(form.discount) || 0, 0), 100);
+  const discountAmount = Math.round((feesAmount * discountPercent) / 100);
+  const finalFeeAmount = feesAmount - discountAmount;
+
   const formatCurrency = (value) => {
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
@@ -300,6 +305,9 @@ export default function AdmissionForm({ embedded = false }) {
       ...form,
       class_applying: formatClassName(form.class_applying),
       previous_class: formatClassName(form.previous_class),
+      fees: feesAmount,
+      discount: discountPercent,
+      final_fee: finalFeeAmount,
     };
 
     try {
@@ -536,6 +544,72 @@ export default function AdmissionForm({ embedded = false }) {
             </Section>
           </div>
 
+
+          <div className="mb-6">
+            <h2 className="mb-4 rounded-t-lg border-b bg-primary px-4 py-3 text-center text-lg font-semibold text-white">
+              Fee Details
+            </h2>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <label className="text-sm font-medium">Total School Fees (₹)</label>
+                <input
+                  type="number"
+                  name="fees"
+                  min="0"
+                  placeholder="Enter total school fees"
+                  onChange={handleChange}
+                  value={form.fees || ""}
+                  className="mt-1 w-full rounded-lg border p-2 outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Discount (%)</label>
+                <input
+                  type="number"
+                  name="discount"
+                  min="0"
+                  max="100"
+                  placeholder="Enter discount percentage"
+                  onChange={handleChange}
+                  value={form.discount || ""}
+                  className="mt-1 w-full rounded-lg border p-2 outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Admission Fee Mode</label>
+                <select
+                  name="admission_fee_mode"
+                  onChange={handleChange}
+                  value={form.admission_fee_mode || ""}
+                  className="mt-1 w-full rounded-lg border p-2 outline-none focus:ring-2 focus:ring-black"
+                >
+                  <option value="">Select Mode</option>
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI</option>
+                </select>
+              </div>
+            </div>
+
+            {feesAmount > 0 && (
+              <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-xl border border-slate-200">
+                <div className="border-r border-slate-200 p-4 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total School Fees</p>
+                  <p className="mt-1 text-xl font-black text-slate-900">{formatCurrency(feesAmount)}</p>
+                </div>
+                <div className="border-r border-slate-200 bg-amber-50 p-4 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Discount ({discountPercent}%)</p>
+                  <p className="mt-1 text-xl font-black text-amber-700">− {formatCurrency(discountAmount)}</p>
+                </div>
+                <div className="bg-emerald-50 p-4 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Net School Fee</p>
+                  <p className="mt-1 text-xl font-black text-emerald-700">{formatCurrency(finalFeeAmount)}</p>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Section title="Parent Details">

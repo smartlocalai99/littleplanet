@@ -74,7 +74,10 @@ export default async function handler(req, res) {
           admission_status,
           created_at,
           parent_id,
-          admission_fee_mode
+          admission_fee_mode,
+          fees,
+          discount,
+          final_fee
         FROM public.admissions
         ORDER BY created_at DESC, id DESC
         `
@@ -185,8 +188,11 @@ export default async function handler(req, res) {
                 guardian_name = $14,
                 emergency_contact = $15,
                 admission_status = $16,
-                admission_fee_mode = $17
-            WHERE id = $18
+                admission_fee_mode = $17,
+                fees = $18,
+                discount = $19,
+                final_fee = $20
+            WHERE id = $21
             RETURNING *
           `,
           [
@@ -207,6 +213,9 @@ export default async function handler(req, res) {
             cleanValue(body.emergency_contact),
             cleanValue(body.admission_status) || "NEW",
             cleanValue(body.admission_fee_mode),
+            body.fees != null ? Number(body.fees) : null,
+            body.discount != null ? Number(body.discount) : null,
+            body.final_fee != null ? Number(body.final_fee) : null,
             admissionId,
           ]
         );
@@ -361,7 +370,10 @@ export default async function handler(req, res) {
             village,
             pin_code,
             emergency_contact,
-            parent_id
+            parent_id,
+            fees,
+            discount,
+            final_fee
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8,
 
@@ -375,7 +387,9 @@ export default async function handler(req, res) {
 
             $23, $24, $25, $26, $27,
 
-            $28, $29, $30, $31, $32, $33, $34, $35
+            $28, $29, $30, $31, $32, $33, $34, $35,
+
+            $36, $37, $38
           )
           RETURNING *;
         `,
@@ -421,6 +435,9 @@ export default async function handler(req, res) {
           cleanValue(body.pin_code),
           cleanValue(body.emergency),
           parent.id,
+          body.fees != null ? Number(body.fees) : null,
+          body.discount != null ? Number(body.discount) : null,
+          body.final_fee != null ? Number(body.final_fee) : null,
         ]
       );
 
