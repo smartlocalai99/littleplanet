@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import { createPoolOptions } from "@/lib/postgresConfig";
+import { buildFeeMetrics } from "@/lib/feeMetrics";
 
 const pool =
   global.pgPool ||
@@ -104,7 +105,27 @@ export default async function handler(req, res) {
     const metricsResult = await pool.query(
       `
       SELECT
-        COALESCE((SELECT SUM(COALESCE(final_fee, fees, 0)) FROM public.admissions), 0)::numeric AS total_fees,
+        COALESCE((
+          SELECT SUM(COALESCE(fees, 0))
+          FROM public.admissions
+        ), 0)::numeric AS expected_fees,
+
+        COALESCE((
+          SELECT SUM(COALESCE(final_fee, fees - COALESCE(discount, 0), fees, 0))
+          FROM public.admissions
+        ), 0)::numeric AS final_receivable,
+
+        COALESCE((
+          SELECT COUNT(*)
+          FROM public.admissions
+          WHERE COALESCE(discount, 0) > 0
+        ), 0)::integer AS discount_students,
+
+        COALESCE((
+          SELECT SUM(COALESCE(discount, 0))
+          FROM public.admissions
+          WHERE COALESCE(discount, 0) > 0
+        ), 0)::numeric AS total_discount,
 
         COALESCE((
           SELECT SUM(amount_paid)
@@ -121,8 +142,7 @@ export default async function handler(req, res) {
       params
     );
 
-    const totalFees = Number(metricsResult.rows[0]?.total_fees || 0);
-    const totalCollected = Number(metricsResult.rows[0]?.total_collected || 0);
+    const metrics = buildFeeMetrics(metricsResult.rows[0]);
 
     const monthlyResult = await pool.query(`
       SELECT
@@ -155,12 +175,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       records: recordsResult.rows,
-      metrics: {
-        totalFees,
-        totalCollected,
-        pendingFees: totalFees - totalCollected,
-        todayCollection: Number(metricsResult.rows[0]?.today_collection || 0),
-      },
+      metrics,
       monthly: monthlyResult.rows,
     });
   } catch (err) {

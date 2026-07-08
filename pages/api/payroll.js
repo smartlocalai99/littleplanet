@@ -1,5 +1,8 @@
 import { Pool } from "pg";
 import { createPoolOptions } from "@/lib/postgresConfig";
+import { getAttendancePool } from "@/lib/attendanceDb";
+import { applyLiveAttendanceSalaries } from "@/lib/staffSalarySync";
+import { ensureStaffAttendanceColumn } from "@/lib/staffSchema";
 
 const pool =
   global.pgPool ||
@@ -15,6 +18,8 @@ if (!global.pgPool) global.pgPool = pool;
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
+      await ensureStaffAttendanceColumn(pool);
+
       const payrollResult = await pool.query(`
         SELECT 
           p.*,
@@ -28,7 +33,7 @@ export default async function handler(req, res) {
       `);
 
       const staffResult = await pool.query(`
-        SELECT id, full_name, designation, staff_type, monthly_salary
+        SELECT id, full_name, designation, staff_type, monthly_salary, attendance_staff_id
         FROM public.staff
         WHERE work_status = 'Active'
         ORDER BY full_name ASC
@@ -42,10 +47,15 @@ export default async function handler(req, res) {
         FROM public.payroll
       `);
 
+      const staff = await applyLiveAttendanceSalaries(
+        staffResult.rows,
+        getAttendancePool()
+      );
+
       return res.status(200).json({
         success: true,
         payroll: payrollResult.rows,
-        staff: staffResult.rows,
+        staff,
         metrics: {
           totalPayroll: Number(metricsResult.rows[0].total_payroll || 0),
           paidPayroll: Number(metricsResult.rows[0].paid_payroll || 0),

@@ -1240,6 +1240,47 @@ export default function FeesPage() {
           </div>
         </div>
 
+        <section className="mb-6 rounded-[1.75rem] border border-amber-100 bg-white p-5 shadow-sm md:p-6">
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-500">
+              Discount Report
+            </p>
+            <h2 className="mt-2 text-xl font-black text-slate-900">
+              Discount and receivable overview
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <p className="text-sm font-medium text-slate-500">Discount Given Students</p>
+              <h3 className="mt-3 text-3xl font-black text-slate-900">
+                {Number(metrics.discountStudents || 0)}
+              </h3>
+            </div>
+
+            <div className="rounded-3xl border border-amber-100 bg-amber-50 p-5">
+              <p className="text-sm font-medium text-amber-700">Total Discount</p>
+              <h3 className="mt-3 text-3xl font-black text-amber-700">
+                {formatCurrency(metrics.totalDiscount)}
+              </h3>
+            </div>
+
+            <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5">
+              <p className="text-sm font-medium text-blue-700">Expected Fees</p>
+              <h3 className="mt-3 text-3xl font-black text-blue-700">
+                {formatCurrency(metrics.expectedFees)}
+              </h3>
+            </div>
+
+            <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-5">
+              <p className="text-sm font-medium text-emerald-700">Final Receivable</p>
+              <h3 className="mt-3 text-3xl font-black text-emerald-700">
+                {formatCurrency(metrics.finalReceivable)}
+              </h3>
+            </div>
+          </div>
+        </section>
+
         <section className="mb-6 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>

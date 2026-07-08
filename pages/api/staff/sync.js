@@ -1,18 +1,12 @@
 import { Pool } from "pg";
 import { createPoolOptions } from "@/lib/postgresConfig";
 import { getAttendancePool } from "@/lib/attendanceDb";
+import { ensureStaffAttendanceColumn } from "@/lib/staffSchema";
 
 const pool =
   global.pgPool ||
   new Pool(createPoolOptions({ ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false }));
 if (!global.pgPool) global.pgPool = pool;
-
-async function ensureAttendanceStaffIdColumn(client) {
-  await client.query(`
-    ALTER TABLE public.staff
-    ADD COLUMN IF NOT EXISTS attendance_staff_id UUID
-  `);
-}
 
 export default async function handler(req, res) {
   const attendancePool = getAttendancePool();
@@ -23,6 +17,8 @@ export default async function handler(req, res) {
   try {
     // GET — list all attendance DB staff, mark which are already synced
     if (req.method === "GET") {
+      await ensureStaffAttendanceColumn(pool);
+
       const [attStaff, schoolStaff] = await Promise.all([
         attendancePool.query(`
           SELECT id, teacher_id, full_name, subject, salary, is_active, created_at
@@ -62,7 +58,7 @@ export default async function handler(req, res) {
 
       try {
         await client.query("BEGIN");
-        await ensureAttendanceStaffIdColumn(client);
+        await ensureStaffAttendanceColumn(client);
 
         for (const s of attStaff.rows) {
           // Skip if already synced
@@ -72,10 +68,20 @@ export default async function handler(req, res) {
           );
 
           if (existing.rows.length > 0) {
-            // Just ensure attendance_staff_id is linked
+            // Keep the link and refresh salary from the attendance system.
             await client.query(
-              `UPDATE public.staff SET attendance_staff_id = $1 WHERE id = $2`,
-              [s.id, existing.rows[0].id]
+              `
+              UPDATE public.staff
+              SET
+                attendance_staff_id = $1,
+                monthly_salary = CASE
+                  WHEN COALESCE($2::numeric, 0) > 0 THEN $2::numeric
+                  ELSE monthly_salary
+                END,
+                updated_at = NOW()
+              WHERE id = $3
+              `,
+              [s.id, Number(s.salary) || 0, existing.rows[0].id]
             );
             skipped++;
             continue;

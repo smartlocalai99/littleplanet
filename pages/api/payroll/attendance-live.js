@@ -1,6 +1,8 @@
 import { Pool } from "pg";
 import { createPoolOptions } from "@/lib/postgresConfig";
 import { getAttendancePool } from "@/lib/attendanceDb";
+import { loadAttendanceSalaryMap } from "@/lib/staffSalarySync";
+import { ensureStaffAttendanceColumn } from "@/lib/staffSchema";
 
 const pool =
   global.pgPool ||
@@ -24,6 +26,8 @@ export default async function handler(req, res) {
   }
 
   try {
+    await ensureStaffAttendanceColumn(pool);
+
     // Look up attendance_staff_id for this school staff
     const schoolStaff = await pool.query(
       `SELECT id, full_name, monthly_salary, attendance_staff_id FROM public.staff WHERE id = $1`,
@@ -70,7 +74,13 @@ export default async function handler(req, res) {
     const halfDays = records.filter((r) => r.status === "Half Day").length;
     const totalDays = records.length;
 
-    const monthlySalary = Number(staff.monthly_salary) || 0;
+    const salaryByAttendanceId = await loadAttendanceSalaryMap(attendancePool, [
+      staff.attendance_staff_id,
+    ]);
+    const attendanceSalary = Number(
+      salaryByAttendanceId.get(staff.attendance_staff_id) || 0
+    );
+    const monthlySalary = attendanceSalary || Number(staff.monthly_salary) || 0;
     const workingDaysInMonth = new Date(Number(year), Number(mon), 0).getDate();
     const effectiveDays = presentDays + halfDays * 0.5;
     const lopDays = Math.max(workingDaysInMonth - effectiveDays, 0);

@@ -1,6 +1,8 @@
 import { Pool } from "pg";
 import { createPoolOptions } from "@/lib/postgresConfig";
 import { getAttendancePool } from "@/lib/attendanceDb";
+import { applyLiveAttendanceSalaries } from "@/lib/staffSalarySync";
+import { ensureStaffAttendanceColumn } from "@/lib/staffSchema";
 
 const pool =
   global.pgPool ||
@@ -18,6 +20,8 @@ if (!global.pgPool) {
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
+      await ensureStaffAttendanceColumn(pool);
+
       const result = await pool.query(`
         SELECT
           id,
@@ -38,15 +42,18 @@ export default async function handler(req, res) {
           salary_type,
           monthly_salary,
           work_status,
+          attendance_staff_id,
           photo_url,
           created_at
         FROM public.staff
         ORDER BY id DESC
       `);
 
+      const staff = await applyLiveAttendanceSalaries(result.rows, getAttendancePool());
+
       return res.status(200).json({
         success: true,
-        staff: result.rows,
+        staff,
       });
     }
 
@@ -191,8 +198,7 @@ export default async function handler(req, res) {
       try {
         const attendancePool = getAttendancePool();
         if (attendancePool) {
-          // Ensure school DB has attendance_staff_id column
-          await pool.query(`ALTER TABLE public.staff ADD COLUMN IF NOT EXISTS attendance_staff_id UUID`);
+          await ensureStaffAttendanceColumn(pool);
 
           const teacherId = newStaff.staff_code || `T-${newStaff.id}`;
           const attResult = await attendancePool.query(
