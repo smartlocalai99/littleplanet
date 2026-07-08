@@ -5,6 +5,9 @@ import { withAuthPage } from "@/lib/withAuthPage";
 
 export const getServerSideProps = withAuthPage({ path: "/payroll" });
 
+const SCHOOL_NAME = "Little Planet";
+const SCHOOL_ADDRESS = "Prakash Nagar, Kadapa, Andhra Pradesh";
+
 const emptyForm = {
   staff_id: "",
   payroll_month: new Date().toLocaleString("en-US", {
@@ -52,7 +55,7 @@ function StatusBadge({ status }) {
   );
 }
 
-function PayrollModal({ open, form, setForm, staff, onClose, onSubmit, submitting }) {
+function PayrollModal({ open, form, setForm, staff, onClose, onSubmit, submitting, mode }) {
   if (!open) return null;
 
   const netSalary =
@@ -79,7 +82,9 @@ function PayrollModal({ open, form, setForm, staff, onClose, onSubmit, submittin
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-xl">
         <div className="sticky top-0 flex items-center justify-between border-b bg-white p-5">
-          <h2 className="text-xl font-bold text-slate-900">Add / Edit Payroll</h2>
+          <h2 className="text-xl font-bold text-slate-900">
+            {mode === "edit" ? "Update Payroll Draft" : "Submit Payroll"}
+          </h2>
           <button onClick={onClose} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold">
             Close
           </button>
@@ -180,20 +185,6 @@ function PayrollModal({ open, form, setForm, staff, onClose, onSubmit, submittin
           <section>
             <h3 className="mb-3 font-bold text-slate-900">Payment</h3>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase text-slate-500">Status</label>
-                <select
-                  value={form.payment_status}
-                  onChange={(e) => setForm((p) => ({ ...p, payment_status: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-900"
-                >
-                  <option>PENDING</option>
-                  <option>PAID</option>
-                  <option>PARTIAL</option>
-                  <option>HOLD</option>
-                </select>
-              </div>
-
               {input("payment_date", "Payment Date", "date")}
 
               <div>
@@ -235,10 +226,145 @@ function PayrollModal({ open, form, setForm, staff, onClose, onSubmit, submittin
             disabled={submitting}
             className="rounded-xl bg-slate-900 px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
           >
-            {submitting ? "Saving..." : "Save Payroll"}
+            {submitting ? "Submitting..." : mode === "edit" ? "Update Draft" : "Submit Payroll"}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function formatDate(value) {
+  if (!value) return new Date().toLocaleDateString("en-IN");
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function PayrollPrintModal({ data, onClose, onPrint }) {
+  if (!data) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-auto bg-black/60 p-4 backdrop-blur-sm">
+      <div className="mx-auto max-w-5xl rounded-2xl bg-white shadow-2xl">
+        <div className="no-print flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-black text-slate-900">Payroll Hardcopy</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Print this submitted payroll voucher for the school records.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={onPrint}
+              className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-black"
+            >
+              Print
+            </button>
+          </div>
+        </div>
+
+        <div id="payroll-print-source" className="bg-white p-6">
+          <PayrollPrintSheet data={data} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PayrollPrintSheet({ data }) {
+  return (
+    <div className="mx-auto min-h-[900px] max-w-4xl border-2 border-black bg-white p-8 text-black">
+      <div className="border-b-2 border-black pb-4 text-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.jpg" alt="School Logo" className="mx-auto h-28 w-[420px] object-contain" />
+        <h1 className="mt-3 text-2xl font-black uppercase tracking-[0.18em]">
+          {SCHOOL_NAME}
+        </h1>
+        <p className="mt-1 text-sm font-semibold">{SCHOOL_ADDRESS}</p>
+        <h2 className="mt-4 border-y-2 border-black py-2 text-xl font-black uppercase tracking-[0.16em]">
+          Salary Payment Voucher
+        </h2>
+      </div>
+
+      <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+        <PrintField label="Voucher No." value={`PAY-${String(data.id || "PREVIEW").padStart(5, "0")}`} />
+        <PrintField label="Date" value={formatDate(data.payment_date)} />
+        <PrintField label="Staff Name" value={data.full_name || "-"} />
+        <PrintField label="Designation" value={data.designation || data.staff_type || "-"} />
+        <PrintField label="Payroll Month" value={`${data.payroll_month || "-"} ${data.payroll_year || ""}`} />
+        <PrintField label="Payment Mode" value={data.payment_mode || "-"} />
+        <PrintField label="Reference No." value={data.reference_no || "-"} />
+        <PrintField label="Prepared By" value={data.created_by || "Admin"} />
+      </div>
+
+      <div className="mt-8 overflow-hidden border-2 border-black text-sm">
+        <div className="grid grid-cols-[1fr_160px] border-b-2 border-black bg-gray-100 font-black">
+          <div className="border-r-2 border-black p-3">Salary Particulars</div>
+          <div className="p-3 text-right">Amount</div>
+        </div>
+        <PrintAmountRow label="Basic Salary" value={data.basic_salary} />
+        <PrintAmountRow label="Increment" value={data.increment_amount} />
+        <PrintAmountRow label="Bonus" value={data.bonus_amount} />
+        <PrintAmountRow label="Deduction" value={-Number(data.deduction_amount || 0)} />
+        <div className="grid grid-cols-[1fr_160px] bg-gray-200 font-black">
+          <div className="border-r-2 border-black p-3">Net Salary Paid</div>
+          <div className="p-3 text-right">{money(data.net_salary)}</div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-4 gap-3 text-sm">
+        <PrintField label="Working Days" value={data.working_days || 0} />
+        <PrintField label="Leave Days" value={data.leave_days || 0} />
+        <PrintField label="LOP Days" value={data.lop_days || 0} />
+        <PrintField label="Carry Forward" value={data.carry_forward_leaves || 0} />
+      </div>
+
+      <div className="mt-6 border border-black p-3 text-sm">
+        <p className="font-black">Remarks</p>
+        <p className="mt-1 min-h-10">{data.remarks || "Salary submitted and recorded in school payroll."}</p>
+      </div>
+
+      <div className="mt-20 grid grid-cols-2 gap-12 text-center text-sm font-black">
+        <div>
+          <div className="border-t-2 border-black pt-2">Staff Signature</div>
+        </div>
+        <div>
+          <div className="border-t-2 border-black pt-2">Authorized Signature</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PrintField({ label, value }) {
+  return (
+    <div className="border-b border-black pb-1">
+      <span className="font-black">{label}: </span>
+      <span className="font-semibold">{value}</span>
+    </div>
+  );
+}
+
+function PrintAmountRow({ label, value }) {
+  return (
+    <div className="grid grid-cols-[1fr_160px] border-b border-black">
+      <div className="border-r-2 border-black p-3 font-semibold">{label}</div>
+      <div className="p-3 text-right font-bold">{money(value)}</div>
     </div>
   );
 }
@@ -250,6 +376,7 @@ export default function PayrollPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [printData, setPrintData] = useState(null);
   const [message, setMessage] = useState("");
   const [filterMonthYear, setFilterMonthYear] = useState(`${emptyForm.payroll_month} ${emptyForm.payroll_year}`);
 
@@ -268,18 +395,25 @@ export default function PayrollPage() {
     fetchData();
   }, [fetchData]);
 
-  function openAdd() {
+  function openSubmit() {
     const [month, year] = filterMonthYear.split(" ");
     setSelectedId(null);
     setForm({
       ...emptyForm,
       payroll_month: month || emptyForm.payroll_month,
       payroll_year: Number(year || emptyForm.payroll_year),
+      payment_status: "PAID",
+      payment_date: new Date().toISOString().slice(0, 10),
     });
     setModalOpen(true);
   }
 
   function openEdit(row) {
+    if (row.payment_status === "PAID") {
+      setMessage("Submitted payroll cannot be edited.");
+      return;
+    }
+
     setSelectedId(row.id);
     setForm({
       staff_id: row.staff_id,
@@ -318,15 +452,40 @@ export default function PayrollPage() {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, net_salary: netSalary }),
+        body: JSON.stringify({
+          ...form,
+          payment_status: selectedId ? form.payment_status : "PAID",
+          payment_date:
+            form.payment_date || new Date().toISOString().slice(0, 10),
+          net_salary: netSalary,
+        }),
       });
 
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Failed to save payroll");
 
-      setMessage("Payroll saved successfully");
+      const selectedStaff = staff.find((item) => String(item.id) === String(form.staff_id));
+      const printablePayroll = {
+        ...form,
+        ...(selectedStaff || {}),
+        ...(data.payroll || {}),
+        payment_status: data.payroll?.payment_status || form.payment_status || "PAID",
+        payment_date: data.payroll?.payment_date || form.payment_date || new Date().toISOString().slice(0, 10),
+        net_salary: data.payroll?.net_salary ?? netSalary,
+      };
+
+      const shouldPrint = !selectedId || printablePayroll.payment_status === "PAID";
+
+      setMessage(selectedId ? "Payroll draft updated successfully" : "Payroll submitted successfully");
       setModalOpen(false);
-      fetchData();
+      await fetchData();
+
+      if (shouldPrint) {
+        setPrintData(printablePayroll);
+        setTimeout(() => {
+          printPayrollHardcopy();
+        }, 300);
+      }
     } catch (err) {
       setMessage(err.message);
     } finally {
@@ -361,6 +520,13 @@ export default function PayrollPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Unable to mark salary paid");
 
+      const printablePayroll = {
+        ...row,
+        ...(data.payroll || {}),
+        payment_status: data.payroll?.payment_status || "PAID",
+        payment_date: data.payroll?.payment_date || new Date().toISOString().slice(0, 10),
+      };
+
       await Swal.fire({
         icon: "success",
         title: "Marked paid",
@@ -368,7 +534,11 @@ export default function PayrollPage() {
         timer: 1400,
         showConfirmButton: false,
       });
+      setPrintData(printablePayroll);
       fetchData();
+      setTimeout(() => {
+        printPayrollHardcopy();
+      }, 300);
     } catch (error) {
       setMessage(error.message);
       await Swal.fire({
@@ -467,6 +637,67 @@ export default function PayrollPage() {
     XLSX.writeFile(workbook, `payroll-${filterMonthYear.replace(/\s+/g, "-").toLowerCase()}.xlsx`);
   }
 
+  function printPayrollHardcopy() {
+    const printElement = document.getElementById("payroll-print-source");
+
+    if (!printElement) {
+      return;
+    }
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
+
+    document.body.appendChild(iframe);
+
+    const styles = Array.from(
+      document.querySelectorAll('link[rel="stylesheet"], style')
+    )
+      .map((node) => node.outerHTML)
+      .join("");
+
+    const printDocument = iframe.contentWindow.document;
+
+    printDocument.open();
+    printDocument.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          ${styles}
+          <style>
+            @page { size: A4 portrait; margin: 10mm; }
+            html, body { margin: 0 !important; background: white !important; }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .no-print { display: none !important; }
+          </style>
+        </head>
+        <body>
+          ${printElement.innerHTML}
+        </body>
+      </html>
+    `);
+    printDocument.close();
+
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+
+      setTimeout(() => {
+        iframe.parentNode?.removeChild(iframe);
+      }, 1000);
+    }, 400);
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 p-4 md:p-6">
       <div className="mx-auto max-w-7xl">
@@ -524,10 +755,10 @@ export default function PayrollPage() {
               </button>
               <button
                 type="button"
-                onClick={openAdd}
+                onClick={openSubmit}
                 className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700"
               >
-                Add Payroll
+                Submit Payroll
               </button>
             </div>
           </div>
@@ -566,9 +797,22 @@ export default function PayrollPage() {
                     <td className="px-5 py-4 text-sm">{row.payment_mode || "-"}</td>
                     <td className="px-5 py-4">
                       <div className="flex gap-2">
-                        <button onClick={() => openEdit(row)} className="rounded-xl border px-3 py-2 text-xs font-bold">
-                          Edit
-                        </button>
+                        {row.payment_status !== "PAID" && (
+                          <button onClick={() => openEdit(row)} className="rounded-xl border px-3 py-2 text-xs font-bold">
+                            Edit
+                          </button>
+                        )}
+                        {row.payment_status === "PAID" && (
+                          <button
+                            onClick={() => {
+                              setPrintData(row);
+                              setTimeout(() => printPayrollHardcopy(), 300);
+                            }}
+                            className="rounded-xl border px-3 py-2 text-xs font-bold"
+                          >
+                            Print
+                          </button>
+                        )}
                         {row.payment_status !== "PAID" && (
                           <button
                             onClick={() => markPaid(row)}
@@ -601,6 +845,12 @@ export default function PayrollPage() {
         onClose={() => setModalOpen(false)}
         onSubmit={savePayroll}
         submitting={submitting}
+        mode={selectedId ? "edit" : "submit"}
+      />
+      <PayrollPrintModal
+        data={printData}
+        onClose={() => setPrintData(null)}
+        onPrint={printPayrollHardcopy}
       />
     </div>
   );

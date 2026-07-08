@@ -3,6 +3,7 @@ import { createPoolOptions } from "@/lib/postgresConfig";
 import { getAttendancePool } from "@/lib/attendanceDb";
 import { applyLiveAttendanceSalaries } from "@/lib/staffSalarySync";
 import { ensureStaffAttendanceColumn } from "@/lib/staffSchema";
+import { isSubmittedPayroll } from "@/lib/payrollStatus";
 
 const pool =
   global.pgPool ||
@@ -128,6 +129,18 @@ export default async function handler(req, res) {
     if (req.method === "PUT") {
       const { id } = req.query;
       const b = req.body;
+
+      const existing = await pool.query(
+        `SELECT payment_status FROM public.payroll WHERE id = $1`,
+        [Number(id)]
+      );
+
+      if (isSubmittedPayroll(existing.rows[0]?.payment_status)) {
+        return res.status(409).json({
+          success: false,
+          error: "Submitted payroll cannot be edited",
+        });
+      }
 
       const result = await pool.query(
         `
