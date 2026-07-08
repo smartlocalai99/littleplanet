@@ -34,6 +34,18 @@ const emptyForm = {
   notes: "",
 };
 
+async function readApiResponse(response, fallbackMessage) {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  return {
+    success: false,
+    error: response.ok ? fallbackMessage : `${fallbackMessage}. Please refresh and try again.`,
+  };
+}
+
 function StatusBadge({ status }) {
   const styles = {
     Active: "bg-green-100 text-green-700",
@@ -296,8 +308,9 @@ export default function StaffPage() {
     try {
       setLoading(true);
       const response = await fetch("/api/staff");
-      const data = await response.json();
-      if (data.success) setStaff(data.staff || []);
+      const data = await readApiResponse(response, "Unable to load staff");
+      if (!data.success) throw new Error(data.error || "Unable to load staff");
+      setStaff(data.staff || []);
     } catch (error) {
       setMessage(error.message);
     } finally {
@@ -361,7 +374,7 @@ export default function StaffPage() {
         body: JSON.stringify(form),
       });
 
-      const data = await response.json();
+      const data = await readApiResponse(response, "Unable to save staff");
       if (!data.success) throw new Error(data.error || "Failed to save staff");
 
       setMessage(modalMode === "edit" ? "Staff updated successfully" : "Staff added successfully");
@@ -389,7 +402,7 @@ export default function StaffPage() {
 
     try {
       const response = await fetch(`/api/staff?id=${item.id}`, { method: "DELETE" });
-      const data = await response.json();
+      const data = await readApiResponse(response, "Unable to deactivate staff");
       if (!data.success) throw new Error(data.error || "Failed to delete staff");
       setMessage("Staff deactivated successfully");
       await Swal.fire({
