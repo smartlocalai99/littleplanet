@@ -578,17 +578,6 @@ export default function AdmissionForm({ embedded = false }) {
                 />
               </div>
 
-              <div>
-                <label className="text-sm font-medium">UTR Number (UPI)</label>
-                <input
-                  type="text"
-                  name="utr"
-                  placeholder="Enter UPI UTR number"
-                  onChange={handleChange}
-                  value={form.utr || ""}
-                  className="mt-1 w-full rounded-lg border p-2 outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
             </div>
 
             {feesAmount > 0 && (
