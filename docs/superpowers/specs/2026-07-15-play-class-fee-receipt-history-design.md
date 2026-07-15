@@ -17,14 +17,14 @@ Add `Play Class` anywhere the application offers a school class, give it the sam
 
 ## Receipt Payment History
 
-The payment month comes from each payment's existing `payment_date`. The receipt displays only the localized month and year, not the day. No new fee-month selector or allocation table is needed.
+The payment month comes from each payment's existing `payment_date`. The receipt displays only the localized month name, not the day or year. No new fee-month selector or allocation table is needed.
 
 For the receipt currently being printed:
 
 - Query all earlier `fee_payments` for the same admission.
 - Exclude the current payment from the earlier-payment list.
 - Group earlier payments by calendar month so multiple payments received in the same month appear as one month total.
-- Display each earlier month in chronological order, for example `June 2026 - Rs. 3,000` and `July 2026 - Rs. 4,000`.
+- Display each earlier month in chronological order, for example `June - Rs. 3,000` and `July - Rs. 4,000`.
 - Display the newly recorded amount separately as `Current Payment`.
 - Display cumulative `Total Paid` including the current payment.
 - Display `Pending Balance` after the current payment.
@@ -51,4 +51,3 @@ Opening an existing ledger receipt uses the same API-provided history. The curre
 - Verify receipt-history logic groups earlier payments by month, orders them chronologically, excludes the current payment, and calculates the expected current, total-paid, and pending values.
 - Verify the empty-history state.
 - Run targeted Node tests, ESLint on touched files, and the production build.
-
