@@ -3,7 +3,10 @@ import { FaFileExcel, FaPlus, FaReceipt, FaSyncAlt, FaTrash } from "react-icons/
 import Swal from "sweetalert2";
 import { withAuthPage } from "@/lib/withAuthPage";
 import { downloadExcel } from "@/lib/exportToExcel";
-import { buildPreviousPaymentMonths } from "@/lib/feeReceiptHistory";
+import {
+  buildFeePreviewTotals,
+  buildSchoolYearPaymentCalendar,
+} from "@/lib/feeReceiptHistory";
 import { SCHOOL_CLASS_OPTIONS } from "@/lib/schoolClasses";
 import AdmissionModal from "@/components/AdmissionModal";
 
@@ -317,6 +320,7 @@ export default function FeesPage() {
   const [deletingPaymentId, setDeletingPaymentId] = useState(null);
   const [feeReceiptOpen, setFeeReceiptOpen] = useState(false);
   const [feeReceiptData, setFeeReceiptData] = useState(null);
+  const [pendingFeeEntry, setPendingFeeEntry] = useState(null);
   const [phonePeLoading, setPhonePeLoading] = useState(false);
   const [phonePePayment, setPhonePePayment] = useState(null);
   const [copyLinkLabel, setCopyLinkLabel] = useState("Copy Link");
@@ -695,7 +699,7 @@ export default function FeesPage() {
     });
   }
 
-  async function saveFeeEntry(event) {
+  function previewFeeEntry(event) {
     event.preventDefault();
     setEntryError("");
 
@@ -708,23 +712,58 @@ export default function FeesPage() {
       return;
     }
 
+    const payload = {
+      student_name: entryForm.student_name,
+      admission_id: entryForm.admission_id || undefined,
+      student_id: entryForm.student_id || undefined,
+      class_name: entryForm.class_name,
+      parent_mobile: entryForm.parent_mobile,
+      amount_paid: Number(entryForm.amount_collected),
+      payment_mode: entryForm.payment_mode,
+      payment_date: entryForm.date,
+      utr: entryForm.utr || "",
+    };
+    const receiptSource =
+      rows.find(
+        (item) => String(item.admission_id) === String(entryForm.admission_id)
+      ) || {};
+    const receiptOverrides = {
+      admission_id: payload.admission_id,
+      student_id: payload.student_id,
+      student_name: payload.student_name,
+      class_name: payload.class_name,
+      father_mobile: payload.parent_mobile,
+      latest_receipt_no: "PREVIEW",
+      latest_payment_date: payload.payment_date,
+      latest_paid_amount: payload.amount_paid,
+      payment_mode: payload.payment_mode,
+      latest_reference_no: payload.utr,
+      is_preview: true,
+      draft_payment: {
+        payment_date: payload.payment_date,
+        amount_paid: payload.amount_paid,
+      },
+    };
+
+    setPendingFeeEntry({ payload, receiptSource });
+    setFeeReceiptData(buildFeeReceiptData(receiptSource, receiptOverrides));
+    setFeeReceiptOpen(true);
+  }
+
+  async function persistFeeEntry({ shouldPrint = false } = {}) {
+    if (savingFee || !pendingFeeEntry) {
+      return;
+    }
+
+    const { payload, receiptSource } = pendingFeeEntry;
     setSavingFee(true);
+    setEntryError("");
 
     try {
       const response = await fetch("/api/fees/collect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          student_name: entryForm.student_name,
-          admission_id: entryForm.admission_id || undefined,
-          student_id: entryForm.student_id || undefined,
-          class_name: entryForm.class_name,
-          parent_mobile: entryForm.parent_mobile,
-          amount_paid: Number(entryForm.amount_collected),
-          payment_mode: entryForm.payment_mode,
-          payment_date: entryForm.date,
-          utr: entryForm.utr || "",
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await response.json();
 
@@ -732,29 +771,51 @@ export default function FeesPage() {
         throw new Error(data.error || "Unable to save fee collection");
       }
 
-      const receiptSource =
-        rows.find(
-          (item) =>
-            String(item.admission_id) === String(entryForm.admission_id)
-        ) || {};
+      const existingPaidAmount = Number(receiptSource.paid_amount || 0);
+      const totalFee = Number(receiptSource.total_fee || 0);
+      const paidAmount = Number(payload.amount_paid || 0);
+      const fallbackPaymentHistory = [
+        ...(Array.isArray(receiptSource.payment_history)
+          ? receiptSource.payment_history
+          : []),
+        {
+          receipt_no: data.receiptNo,
+          payment_date: payload.payment_date,
+          amount_paid: paidAmount,
+        },
+      ];
       const receiptOverrides = {
-        admission_id: entryForm.admission_id,
-        student_id: entryForm.student_id,
-        student_name: entryForm.student_name,
-        class_name: entryForm.class_name,
-        father_mobile: entryForm.parent_mobile,
+        admission_id: payload.admission_id,
+        student_id: payload.student_id,
+        student_name: payload.student_name,
+        class_name: payload.class_name,
+        father_mobile: payload.parent_mobile,
         latest_receipt_no: data.receiptNo,
-        latest_payment_date: entryForm.date,
-        latest_paid_amount: Number(entryForm.amount_collected || 0),
-        payment_mode: entryForm.payment_mode,
-        latest_reference_no: entryForm.utr || "",
+        latest_payment_date: payload.payment_date,
+        latest_paid_amount: paidAmount,
+        payment_mode: payload.payment_mode,
+        latest_reference_no: payload.utr,
+        paid_amount: existingPaidAmount + paidAmount,
+        balance_amount: Math.max(
+          totalFee - (existingPaidAmount + paidAmount),
+          0
+        ),
+        payment_history: fallbackPaymentHistory,
+        is_preview: false,
       };
+
+      setPendingFeeEntry(null);
 
       setEntries((current) => [
         {
           id: Date.now(),
-          ...entryForm,
-          amount_collected: Number(entryForm.amount_collected || 0),
+          date: payload.payment_date,
+          student_name: payload.student_name,
+          class_name: payload.class_name,
+          parent_mobile: payload.parent_mobile,
+          payment_mode: payload.payment_mode,
+          utr: payload.utr,
+          amount_collected: paidAmount,
           receipt_no: data.receiptNo,
           status: "Paid",
         },
@@ -786,25 +847,43 @@ export default function FeesPage() {
         params.set("month", month);
       }
 
-      const feesResponse = await fetch(`/api/fees?${params.toString()}`);
-      const feesData = await feesResponse.json();
+      let savedReceiptRow = null;
+      let feesResponse = null;
+      let feesData = null;
 
-      if (feesResponse.ok && feesData.success) {
+      try {
+        feesResponse = await fetch(`/api/fees?${params.toString()}`);
+        feesData = await feesResponse.json().catch(() => null);
+      } catch {
+        feesResponse = null;
+      }
+
+      if (feesResponse?.ok && feesData?.success) {
         setRows(feesData.records || []);
         setMetrics(feesData.metrics || {});
         setMonthly(feesData.monthly || []);
         setLedgerPage(1);
 
-        const savedReceiptRow = (feesData.records || []).find(
+        savedReceiptRow = (feesData.records || []).find(
           (item) =>
-            String(item.admission_id) === String(entryForm.admission_id)
+            String(item.admission_id) === String(payload.admission_id)
         );
+      }
 
-        openFeeReceipt(savedReceiptRow || receiptSource, receiptOverrides);
+      const savedReceiptData = buildFeeReceiptData(
+        savedReceiptRow || receiptSource,
+        receiptOverrides
+      );
+
+      if (shouldPrint) {
+        setFeeReceiptData(savedReceiptData);
+        setFeeReceiptOpen(true);
         setTimeout(() => {
           void printFeeReceiptOnly();
-        }, 700);
-
+        }, 150);
+      } else {
+        setFeeReceiptOpen(false);
+        setFeeReceiptData(null);
       }
     } catch (requestError) {
       setEntryError(requestError.message || "Unable to save fee collection");
@@ -998,31 +1077,45 @@ export default function FeesPage() {
   }
 
   function buildFeeReceiptData(item, overrides = {}) {
-    const paidAmount = Number(
-      overrides.latest_paid_amount ??
-        item.latest_paid_amount ??
-        item.amount_collected ??
-        0
-    );
     const totalFee = Number(overrides.total_fee ?? item.total_fee ?? 0);
+    const isPreview = Boolean(overrides.is_preview);
+    const draftPayment = isPreview ? overrides.draft_payment : null;
+    const previewTotals = buildFeePreviewTotals({
+      totalFee,
+      paidAmount: item.paid_amount,
+      draftAmount: draftPayment?.amount_paid,
+    });
+    const paidAmount = Number(
+      isPreview
+        ? previewTotals.currentPayment
+        : overrides.latest_paid_amount ??
+            item.latest_paid_amount ??
+            item.amount_collected ??
+            0
+    );
     const totalPaid = Number(
-      overrides.paid_amount ?? item.paid_amount ?? paidAmount
+      isPreview
+        ? previewTotals.totalPaid
+        : overrides.paid_amount ?? item.paid_amount ?? paidAmount
     );
     const balanceAmount = Number(
-      overrides.balance_amount ??
-        item.balance_amount ??
-        Math.max(totalFee - totalPaid, 0)
+      isPreview
+        ? previewTotals.balanceAmount
+        : overrides.balance_amount ??
+            item.balance_amount ??
+            Math.max(totalFee - totalPaid, 0)
     );
-    const previousPayments = buildPreviousPaymentMonths(
+    const paymentDate =
+      overrides.latest_payment_date ??
+      overrides.payment_date ??
+      item.latest_payment_date ??
+      item.date ??
+      today;
+    const paymentCalendar = buildSchoolYearPaymentCalendar(
       overrides.payment_history ?? item.payment_history ?? [],
       {
-        currentPaymentId:
-          overrides.latest_payment_id ?? item.latest_payment_id,
-        currentReceiptNo:
-          overrides.latest_receipt_no ??
-          overrides.receipt_no ??
-          item.latest_receipt_no ??
-          item.receipt_no,
+        referenceDate: paymentDate,
+        draftPayment,
       }
     );
 
@@ -1040,12 +1133,7 @@ export default function FeesPage() {
         item.latest_receipt_no ??
         item.receipt_no ??
         "PREVIEW",
-      payment_date:
-        overrides.latest_payment_date ??
-        overrides.payment_date ??
-        item.latest_payment_date ??
-        item.date ??
-        today,
+      payment_date: paymentDate,
       payment_mode:
         overrides.payment_mode ?? item.payment_mode ?? getPaymentMode(item) ?? "-",
       reference_no:
@@ -1058,18 +1146,25 @@ export default function FeesPage() {
       total_fee: totalFee,
       paid_amount: totalPaid,
       balance_amount: balanceAmount,
-      previous_payments: previousPayments,
+      payment_calendar: paymentCalendar,
+      is_preview: isPreview,
     };
   }
 
   function openFeeReceipt(item, overrides = {}) {
+    setPendingFeeEntry(null);
     setFeeReceiptData(buildFeeReceiptData(item, overrides));
     setFeeReceiptOpen(true);
   }
 
   function closeFeeReceipt() {
+    if (savingFee) {
+      return;
+    }
+
     setFeeReceiptOpen(false);
     setFeeReceiptData(null);
+    setPendingFeeEntry(null);
   }
 
   async function printFeeReceiptOnly() {
@@ -1176,6 +1271,12 @@ export default function FeesPage() {
             .receipt-p-1 { padding: 2px 4px !important; }
             .receipt-p-2 { padding: 3px 5px !important; }
             .receipt-row-label { width: 100% !important; }
+            .receipt-calendar-cell {
+              min-width: 0 !important;
+              padding: 2px 1px !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+            }
             .no-print { display: none !important; }
           </style>
         </head>
@@ -1381,7 +1482,7 @@ export default function FeesPage() {
           )}
 
           <form
-            onSubmit={saveFeeEntry}
+            onSubmit={previewFeeEntry}
             className="mt-6 grid gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-3"
           >
             <div ref={studentSearchRef} className="relative md:col-span-2 xl:col-span-3">
@@ -1512,7 +1613,7 @@ export default function FeesPage() {
               disabled={savingFee}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 xl:col-span-3"
             >
-              <FaPlus /> {savingFee ? "Saving fee..." : "Save fee collection"}
+              <FaPlus /> Save fee collection
             </button>
           </form>
 
@@ -1875,7 +1976,11 @@ export default function FeesPage() {
     {feeReceiptOpen && feeReceiptData ? (
       <FeeReceiptPreviewModal
         data={feeReceiptData}
+        error={entryError}
+        saving={savingFee}
         onClose={closeFeeReceipt}
+        onSave={() => persistFeeEntry({ shouldPrint: false })}
+        onSaveAndPrint={() => persistFeeEntry({ shouldPrint: true })}
         onPrint={printFeeReceiptOnly}
       />
     ) : null}
@@ -1948,7 +2053,17 @@ function LedgerPagination({
   );
 }
 
-function FeeReceiptPreviewModal({ data, onClose, onPrint }) {
+function FeeReceiptPreviewModal({
+  data,
+  error,
+  saving,
+  onClose,
+  onSave,
+  onSaveAndPrint,
+  onPrint,
+}) {
+  const isPreview = Boolean(data?.is_preview);
+
   return (
     <div className="receipt-modal-shell fixed inset-0 z-50 overflow-auto bg-black/60 p-4 backdrop-blur-sm">
       <div className="receipt-modal-card mx-auto max-w-7xl rounded-2xl bg-white shadow-2xl">
@@ -1958,7 +2073,9 @@ function FeeReceiptPreviewModal({ data, onClose, onPrint }) {
               Fee Receipt
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Check the paid fee entry and print the parent copy.
+              {isPreview
+                ? "Review the receipt. Nothing is saved until you choose Save or Save & Print."
+                : "Check the paid fee entry and print the parent copy."}
             </p>
           </div>
 
@@ -1966,20 +2083,49 @@ function FeeReceiptPreviewModal({ data, onClose, onPrint }) {
             <button
               type="button"
               onClick={onClose}
+              disabled={saving}
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
               Close
             </button>
 
-            <button
-              type="button"
-              onClick={onPrint}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
-            >
-              Print
-            </button>
+            {isPreview ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={saving}
+                  className="rounded-lg bg-slate-600 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? "Saving..." : "Save"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onSaveAndPrint}
+                  disabled={saving}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? "Saving..." : "Save & Print"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={onPrint}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+              >
+                Print
+              </button>
+            )}
           </div>
         </div>
+
+        {error ? (
+          <p className="no-print mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+            {error}
+          </p>
+        ) : null}
 
         <div id="fee-receipt-preview-source" className="receipt-print-area bg-white p-4">
           <FeeReceiptSheet data={data} />
@@ -2002,8 +2148,8 @@ function FeeReceiptCopy({ data, copyLabel }) {
   const paidAmount = Number(data?.latest_paid_amount || 0);
   const totalPaid = Number(data?.paid_amount || 0);
   const balanceAmount = Number(data?.balance_amount || 0);
-  const previousPayments = Array.isArray(data?.previous_payments)
-    ? data.previous_payments
+  const paymentCalendar = Array.isArray(data?.payment_calendar)
+    ? data.payment_calendar
     : [];
   const registrationNo = data?.admission_id
     ? `LP-${String(data.admission_id).padStart(5, "0")}`
@@ -2081,30 +2227,7 @@ function FeeReceiptCopy({ data, copyLabel }) {
         </div>
       </div>
 
-      {previousPayments.length > 0 ? (
-        previousPayments.map((payment) => (
-          <div
-            key={payment.monthKey}
-            className="grid grid-cols-[1fr_95px] border-b border-black"
-          >
-            <div className="receipt-p-1 border-r border-black font-black">
-              Previous Payment - {payment.monthLabel}
-            </div>
-
-            <div className="receipt-p-1 text-right font-black">
-              {formatAmountPlain(payment.amount)}
-            </div>
-          </div>
-        ))
-      ) : (
-        <div className="grid grid-cols-[1fr_95px] border-b border-black">
-          <div className="receipt-p-1 border-r border-black font-black">
-            Previous Payments - None
-          </div>
-
-          <div className="receipt-p-1 text-right font-black">-</div>
-        </div>
-      )}
+      <FeePaymentCalendar cells={paymentCalendar} />
 
       <div className="grid grid-cols-[1fr_95px] border-b border-black bg-gray-200">
         <div className="receipt-p-1 border-r border-black font-black">
@@ -2162,6 +2285,44 @@ function FeeReceiptCopy({ data, copyLabel }) {
             Authorized Signature
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FeePaymentCalendar({ cells }) {
+  if (!Array.isArray(cells) || cells.length !== 12) {
+    return null;
+  }
+
+  return (
+    <div className="border-b border-black">
+      <div className="receipt-p-1 text-center text-[9px] font-black uppercase tracking-wide">
+        School Fee Payment Calendar
+      </div>
+
+      <div className="grid grid-cols-12 border-t border-black text-center text-[8px] leading-none">
+        {cells.map((cell) => (
+          <div
+            key={`label-${cell.monthKey}`}
+            className="receipt-calendar-cell border-r border-black px-0.5 py-1 font-black last:border-r-0"
+          >
+            {cell.monthLabel}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-12 border-t border-black text-center text-[8px] leading-none">
+        {cells.map((cell) => (
+          <div
+            key={`amount-${cell.monthKey}`}
+            className="receipt-calendar-cell border-r border-black px-0.5 py-1 font-bold last:border-r-0"
+          >
+            {Number(cell.amount || 0) > 0
+              ? formatAmountPlain(cell.amount)
+              : "-"}
+          </div>
+        ))}
       </div>
     </div>
   );
