@@ -34,7 +34,7 @@ If there are no earlier payments, display `Previous Payments - None` so the rece
 
 ## Data Flow
 
-After a fee payment is saved, the fees API returns ledger data containing the latest receipt and the admission's payment history grouped by month. The receipt-data builder separates the current receipt amount from earlier monthly totals and passes the resulting rows to the receipt component.
+After a fee payment is saved, the fees API returns ledger data containing the latest receipt and the admission's raw payment history. The receipt-data builder excludes the current receipt, groups earlier transactions by month, and passes the resulting rows to the receipt component.
 
 Opening an existing ledger receipt uses the same API-provided history. The current payment is identified by its payment ID or receipt number, avoiding accidental inclusion in `Previous Payments`.
 
