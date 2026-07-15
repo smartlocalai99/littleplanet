@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Swal from "sweetalert2";
 import { getAdmissionFeeDefault } from "../lib/admissionFeeDefaults";
+import { SCHOOL_CLASS_OPTIONS } from "../lib/schoolClasses";
 
 const SCHOOL_NAME = "Little Planet";
 const SCHOOL_ADDRESS = "Prakash Nagar, Kadapa, Andhra Pradesh";
@@ -475,17 +476,11 @@ export default function AdmissionForm({ embedded = false }) {
                 value={form.class_applying || ""}
               >
                 <option value="">Select Class</option>
-                <option value="Nursery">Nursery</option>
-                <option value="LKG">LKG</option>
-                <option value="UKG">UKG</option>
-                <option value="1st">1st</option>
-                <option value="2nd">2nd</option>
-                <option value="3rd">3rd</option>
-                <option value="4th">4th</option>
-                <option value="5th">5th</option>
-                <option value="6th">6th</option>
-                <option value="7th">7th</option>
-                <option value="8th">8th</option>
+                {SCHOOL_CLASS_OPTIONS.map((className) => (
+                  <option key={className} value={className}>
+                    {className}
+                  </option>
+                ))}
               </Select>
 
               <Input
@@ -502,17 +497,11 @@ export default function AdmissionForm({ embedded = false }) {
                 value={form.previous_class || ""}
               >
                 <option value="">Select Class</option>
-                <option value="Nursery">Nursery</option>
-                <option value="LKG">LKG</option>
-                <option value="UKG">UKG</option>
-                <option value="1st">1st</option>
-                <option value="2nd">2nd</option>
-                <option value="3rd">3rd</option>
-                <option value="4th">4th</option>
-                <option value="5th">5th</option>
-                <option value="6th">6th</option>
-                <option value="7th">7th</option>
-                <option value="8th">8th</option>
+                {SCHOOL_CLASS_OPTIONS.map((className) => (
+                  <option key={className} value={className}>
+                    {className}
+                  </option>
+                ))}
               </Select>
 
               <Select

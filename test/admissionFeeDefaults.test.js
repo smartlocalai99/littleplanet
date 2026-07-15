@@ -4,6 +4,11 @@ const assert = require("node:assert/strict");
 const { getAdmissionFeeDefault } = require("../lib/admissionFeeDefaults");
 
 test("returns Little Planet fee defaults for admission classes", () => {
+  assert.deepEqual(
+    getAdmissionFeeDefault("Play Class"),
+    getAdmissionFeeDefault("Nursery")
+  );
+
   assert.deepEqual(getAdmissionFeeDefault("Nursery"), {
     totalFees: 19000,
     firstTermFee: 5000,

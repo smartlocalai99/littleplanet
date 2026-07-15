@@ -3,6 +3,7 @@ import { FaFileExcel, FaPlus, FaReceipt, FaSyncAlt, FaTrash } from "react-icons/
 import Swal from "sweetalert2";
 import { withAuthPage } from "@/lib/withAuthPage";
 import { downloadExcel } from "@/lib/exportToExcel";
+import { SCHOOL_CLASS_OPTIONS } from "@/lib/schoolClasses";
 import AdmissionModal from "@/components/AdmissionModal";
 
 export const getServerSideProps = withAuthPage({ path: "/fees" });
@@ -344,27 +345,11 @@ export default function FeesPage() {
   const ledgerPageSize = 10;
 
   const classOptions = useMemo(() => {
-    const fallbackClasses = [
-      "Nursery",
-      "LKG",
-      "UKG",
-      "1st",
-      "2nd",
-      "3rd",
-      "4th",
-      "5th",
-      "6th",
-      "7th",
-      "8th",
-      "9th",
-      "10th",
-    ];
-
     const uniqueFromRows = rows
       .map((item) => getClassName(item))
       .filter((value) => value && !/^\d+$/.test(value));
 
-    return Array.from(new Set([...uniqueFromRows, ...fallbackClasses]));
+    return Array.from(new Set([...uniqueFromRows, ...SCHOOL_CLASS_OPTIONS]));
   }, [rows]);
 
   const paymentModeOptions = useMemo(() => {
