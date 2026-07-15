@@ -3,6 +3,7 @@ import { FaFileExcel, FaPlus, FaReceipt, FaSyncAlt, FaTrash } from "react-icons/
 import Swal from "sweetalert2";
 import { withAuthPage } from "@/lib/withAuthPage";
 import { downloadExcel } from "@/lib/exportToExcel";
+import { buildPreviousPaymentMonths } from "@/lib/feeReceiptHistory";
 import { SCHOOL_CLASS_OPTIONS } from "@/lib/schoolClasses";
 import AdmissionModal from "@/components/AdmissionModal";
 
@@ -1012,6 +1013,18 @@ export default function FeesPage() {
         item.balance_amount ??
         Math.max(totalFee - totalPaid, 0)
     );
+    const previousPayments = buildPreviousPaymentMonths(
+      overrides.payment_history ?? item.payment_history ?? [],
+      {
+        currentPaymentId:
+          overrides.latest_payment_id ?? item.latest_payment_id,
+        currentReceiptNo:
+          overrides.latest_receipt_no ??
+          overrides.receipt_no ??
+          item.latest_receipt_no ??
+          item.receipt_no,
+      }
+    );
 
     return {
       admission_id: overrides.admission_id ?? item.admission_id ?? "",
@@ -1045,6 +1058,7 @@ export default function FeesPage() {
       total_fee: totalFee,
       paid_amount: totalPaid,
       balance_amount: balanceAmount,
+      previous_payments: previousPayments,
     };
   }
 
@@ -1986,9 +2000,11 @@ function FeeReceiptSheet({ data }) {
 
 function FeeReceiptCopy({ data, copyLabel }) {
   const paidAmount = Number(data?.latest_paid_amount || 0);
-  const totalFee = Number(data?.total_fee || 0);
   const totalPaid = Number(data?.paid_amount || 0);
   const balanceAmount = Number(data?.balance_amount || 0);
+  const previousPayments = Array.isArray(data?.previous_payments)
+    ? data.previous_payments
+    : [];
   const registrationNo = data?.admission_id
     ? `LP-${String(data.admission_id).padStart(5, "0")}`
     : "-";
@@ -2065,6 +2081,31 @@ function FeeReceiptCopy({ data, copyLabel }) {
         </div>
       </div>
 
+      {previousPayments.length > 0 ? (
+        previousPayments.map((payment) => (
+          <div
+            key={payment.monthKey}
+            className="grid grid-cols-[1fr_95px] border-b border-black"
+          >
+            <div className="receipt-p-1 border-r border-black font-black">
+              Previous Payment - {payment.monthLabel}
+            </div>
+
+            <div className="receipt-p-1 text-right font-black">
+              {formatAmountPlain(payment.amount)}
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="grid grid-cols-[1fr_95px] border-b border-black">
+          <div className="receipt-p-1 border-r border-black font-black">
+            Previous Payments - None
+          </div>
+
+          <div className="receipt-p-1 text-right font-black">-</div>
+        </div>
+      )}
+
       <div className="grid grid-cols-[1fr_95px] border-b border-black bg-gray-200">
         <div className="receipt-p-1 border-r border-black font-black">
           Current Payment Paid
@@ -2086,6 +2127,16 @@ function FeeReceiptCopy({ data, copyLabel }) {
           <div className="space-y-1">
             <p>{formatAmountPlain(totalPaid)}</p>
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[1fr_95px] border-b border-black">
+        <div className="receipt-p-2 border-r border-black">
+          <div className="pl-8 font-black">Pending Balance</div>
+        </div>
+
+        <div className="receipt-p-2 text-right font-black">
+          {formatAmountPlain(balanceAmount)}
         </div>
       </div>
 

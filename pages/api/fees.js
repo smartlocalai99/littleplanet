@@ -75,6 +75,16 @@ export default async function handler(req, res) {
         latest_fp.reference_no AS latest_reference_no,
         latest_fp.payment_date AS latest_payment_date,
         latest_fp.receipt_no AS latest_receipt_no,
+        COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+            'id', history_fp.id,
+            'receipt_no', history_fp.receipt_no,
+            'payment_date', history_fp.payment_date,
+            'amount_paid', history_fp.amount_paid
+          ) ORDER BY history_fp.payment_date, history_fp.id)
+          FROM public.fee_payments history_fp
+          WHERE history_fp.admission_id = a.id
+        ), '[]'::jsonb) AS payment_history,
         CASE
           WHEN COALESCE(SUM(fp.amount_paid), 0) = 0 THEN 'Pending'
           WHEN COALESCE(SUM(fp.amount_paid), 0) >= COALESCE(a.final_fee, a.fees, 0) AND COALESCE(a.final_fee, a.fees, 0) > 0 THEN 'Paid'
