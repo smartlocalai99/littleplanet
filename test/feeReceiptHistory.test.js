@@ -5,6 +5,7 @@ const {
   buildFeePreviewTotals,
   buildPreviousPaymentMonths,
   buildSchoolYearPaymentCalendar,
+  createFeeSubmissionLock,
 } = require("../lib/feeReceiptHistory");
 
 test("groups earlier payments by month and excludes the current receipt", () => {
@@ -108,4 +109,15 @@ test("calculates projected receipt totals before saving", () => {
     }),
     { currentPayment: 4000, totalPaid: 11000, balanceAmount: 4000 }
   );
+});
+
+test("allows only one fee submission until the lock is released", () => {
+  const submissionLock = createFeeSubmissionLock();
+
+  assert.equal(submissionLock.tryLock(), true);
+  assert.equal(submissionLock.tryLock(), false);
+
+  submissionLock.release();
+
+  assert.equal(submissionLock.tryLock(), true);
 });

@@ -6,6 +6,7 @@ import { downloadExcel } from "@/lib/exportToExcel";
 import {
   buildFeePreviewTotals,
   buildSchoolYearPaymentCalendar,
+  createFeeSubmissionLock,
 } from "@/lib/feeReceiptHistory";
 import { SCHOOL_CLASS_OPTIONS } from "@/lib/schoolClasses";
 import AdmissionModal from "@/components/AdmissionModal";
@@ -330,6 +331,7 @@ export default function FeesPage() {
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const studentSearchRef = useRef(null);
   const studentDebounceRef = useRef(null);
+  const feeSubmissionLockRef = useRef(createFeeSubmissionLock());
   const [whatsapp, setWhatsapp] = useState({
     phase: "idle", // idle | connecting | connected
     qrUrl: "",
@@ -751,7 +753,7 @@ export default function FeesPage() {
   }
 
   async function persistFeeEntry({ shouldPrint = false } = {}) {
-    if (savingFee || !pendingFeeEntry) {
+    if (!pendingFeeEntry || !feeSubmissionLockRef.current.tryLock()) {
       return;
     }
 
@@ -888,6 +890,7 @@ export default function FeesPage() {
     } catch (requestError) {
       setEntryError(requestError.message || "Unable to save fee collection");
     } finally {
+      feeSubmissionLockRef.current.release();
       setSavingFee(false);
     }
   }
